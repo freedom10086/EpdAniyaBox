@@ -19,6 +19,8 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_log.h"
+
+#include "gps_device_cmd.h"
 #include "nmea_parser.h"
 
 /**
@@ -581,6 +583,7 @@ static void esp_handle_uart_pattern(esp_gps_t *esp_gps)
         /* make sure the line is a standard string */
         esp_gps->buffer[read_len] = '\0';
         /* Send new line to handle */
+        ESP_LOGI(GPS_TAG, " GPS DATA: %s", esp_gps->buffer);
         if (gps_decode(esp_gps, read_len + 1) != ESP_OK) {
             ESP_LOGW(GPS_TAG, "GPS decode line failed");
         }
@@ -603,6 +606,7 @@ static void nmea_parser_task_entry(void *arg)
         if (xQueueReceive(esp_gps->event_queue, &event, pdMS_TO_TICKS(200))) {
             switch (event.type) {
             case UART_DATA:
+                ESP_LOGI(GPS_TAG, "UART_DATA");
                 break;
             case UART_FIFO_OVF:
                 ESP_LOGW(GPS_TAG, "HW FIFO Overflow");
@@ -635,6 +639,20 @@ static void nmea_parser_task_entry(void *arg)
         esp_event_loop_run(esp_gps->event_loop_hdl, pdMS_TO_TICKS(50));
     }
     vTaskDelete(NULL);
+}
+
+void init_gps_device(uart_port_t uart_num) {
+    uart_write_bytes(uart_num, GT_U13_CMD_CLOSE_GSA.data, GT_U13_CMD_CLOSE_GSA.databytes);
+    uart_write_bytes(uart_num, GT_U13_CMD_CLOSE_GSV.data, GT_U13_CMD_CLOSE_GSV.databytes);
+    //uart_write_bytes(uart_num, GT_U13_CMD_CLOSE_GNTXT.data, GT_U13_CMD_CLOSE_GNTXT.databytes);
+    //uart_write_bytes(uart_num, GT_U13_CMD_OPEN_GLL.data, GT_U13_CMD_OPEN_GLL.databytes);
+    //uart_write_bytes(uart_num, GT_U13_CMD_DEVICE_INFO.data, GT_U13_CMD_DEVICE_INFO.databytes);
+
+    //uart_write_bytes(uart_num, GT_U13_CMD_MODE_DUAL.data, GT_U13_CMD_MODE_DUAL.databytes);
+    //uart_write_bytes(uart_num, GT_U13_CMD_SYSTEM_ALL.data, GT_U13_CMD_SYSTEM_ALL.databytes);
+    //uart_write_bytes(uart_num, GT_U13_CMD_SAVE_CONFIG.data, GT_U13_CMD_SAVE_CONFIG.databytes);
+
+    //uart_write_bytes(uart_num, GT_U13_CMD_LOW_POWER_MODE.data, GT_U13_CMD_LOW_POWER_MODE.databytes);
 }
 
 /**
@@ -694,7 +712,7 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         ESP_LOGE(GPS_TAG, "config uart parameter failed");
         goto err_uart_config;
     }
-    if (uart_set_pin(esp_gps->uart_port, UART_PIN_NO_CHANGE, config->uart.rx_pin,
+    if (uart_set_pin(esp_gps->uart_port, config->uart.tx_pin, config->uart.rx_pin,
                      UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE) != ESP_OK) {
         ESP_LOGE(GPS_TAG, "config uart gpio failed");
         goto err_uart_config;
@@ -713,6 +731,10 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
         ESP_LOGE(GPS_TAG, "create event loop faild");
         goto err_eloop;
     }
+
+    // some setting
+    init_gps_device(esp_gps->uart_port);
+
     /* Create NMEA Parser task */
     BaseType_t err = xTaskCreate(
                          nmea_parser_task_entry,

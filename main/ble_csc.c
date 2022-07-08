@@ -50,7 +50,7 @@ void on_wheel_measurement_received(uint32_t wheel_revolutions, uint16_t last_whe
         float wheel_dance =
                 (float) (wheel_revolutions - csc_measure_sensor.last_wheel_revolutions) * 60.0f / timeDifference;
 
-        ESP_LOGI(TAG, "speed: %fm/s %fkm/h, sensor_distance:%f, total_distance: %f, wheel_dance: %f",
+        ESP_LOGI(TAG, " > speed: %fm/s %fkm/h, sensor_distance:%f, total_distance: %f, wheel_dance: %f",
                  speed, speed * 3.6f, sensor_total_distance, total_distance, wheel_dance);
     }
 
@@ -81,7 +81,7 @@ void on_crank_measurement_received(uint16_t crank_revolutions, uint16_t last_cra
         if (crankCadence > 0) {
             //final float gearRatio = mWheelCadence / crankCadence;
 
-            ESP_LOGI(TAG, "crank_cadence: %f", crankCadence);
+            ESP_LOGI(TAG, " > crank_cadence: %f", crankCadence);
         }
     }
     if (!csc_measure_sensor.first_crank_data_get) {
@@ -92,7 +92,7 @@ void on_crank_measurement_received(uint16_t crank_revolutions, uint16_t last_cra
 }
 
 // 解析csc数据
-void ble_parse_csc_data(esp_ble_gattc_cb_param_t *p_data) {
+void ble_parse_csc_data(char *device_name, esp_ble_gattc_cb_param_t *p_data) {
     uint8_t flag = *p_data->notify.value;
     bool has_wheel_revolutions = flag & 0x01;
     bool has_crank_revolutions = flag & 0x02;
@@ -106,7 +106,7 @@ void ble_parse_csc_data(esp_ble_gattc_cb_param_t *p_data) {
         uint16_t last_wheel_revolutions_time = *((uint16_t *) p_data->notify.value);
         p_data->notify.value += 2;
 
-        //ESP_LOGI(TAG, "ESP_GATTC_NOTIFY_EVT, wheel revolutions : %d, last time %d", wheel_revolutions, last_wheel_revolutions_time);
+        ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %d, last time %d", device_name,  wheel_revolutions, last_wheel_revolutions_time);
         on_wheel_measurement_received(wheel_revolutions, last_wheel_revolutions_time);
     }
 
@@ -117,7 +117,7 @@ void ble_parse_csc_data(esp_ble_gattc_cb_param_t *p_data) {
         uint16_t last_crank_revolutions_time = *((uint16_t *) p_data->notify.value);
         p_data->notify.value += 2;
 
-        ESP_LOGI(TAG, "ESP_GATTC_NOTIFY_EVT, crank revolutions : %d, last time %d", crank_revolutions, last_crank_revolutions_time);
+        ESP_LOGI(TAG, "  -> 【%s】 crank revolutions : %d, last time %d", device_name, crank_revolutions, last_crank_revolutions_time);
 
         on_crank_measurement_received(crank_revolutions, last_crank_revolutions_time);
     }

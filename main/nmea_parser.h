@@ -130,7 +130,8 @@ typedef struct {
 typedef struct {
     struct {
         uart_port_t uart_port;        /*!< UART port number */
-        uint32_t rx_pin;              /*!< UART Rx Pin number */
+        int rx_pin;              /*!< UART Rx Pin number */
+        int tx_pin;
         uint32_t baud_rate;           /*!< UART baud rate */
         uart_word_length_t data_bits; /*!< UART data bits length */
         uart_parity_t parity;         /*!< UART parity */
@@ -149,17 +150,18 @@ typedef void *nmea_parser_handle_t;
  * @brief Default configuration for NMEA Parser
  *
  */
-#define NMEA_PARSER_CONFIG_DEFAULT()       \
-    {                                      \
-        .uart = {                          \
-            .uart_port = UART_NUM_1,       \
-            .rx_pin = 2,                   \
-            .baud_rate = 9600,             \
-            .data_bits = UART_DATA_8_BITS, \
-            .parity = UART_PARITY_DISABLE, \
-            .stop_bits = UART_STOP_BITS_1, \
-            .event_queue_size = 16         \
-        }                                  \
+#define NMEA_PARSER_CONFIG_DEFAULT()                        \
+    {                                                       \
+        .uart = {                                           \
+            .uart_port = UART_NUM_1,                        \
+            .rx_pin = CONFIG_NMEA_PARSER_UART_RXD,          \
+            .tx_pin = CONFIG_NMEA_PARSER_UART_TXD,          \
+            .baud_rate = CONFIG_NMEA_PARSER_UART_BAUD_RATE, \
+            .data_bits = UART_DATA_8_BITS,                  \
+            .parity = UART_PARITY_DISABLE,                  \
+            .stop_bits = UART_STOP_BITS_1,                  \
+            .event_queue_size = 16                          \
+        }                                                   \
     }
 
 /**

@@ -34,8 +34,9 @@
 #include "main_page.h"
 #include "nmea_parser.h"
 #include "ble_device.h"
+#include "sd_card.h"
 
-static const char *TAG = "gps_demo";
+static const char *TAG = "BIKE_MAIN";
 
 #define TIME_ZONE (+8)   //Beijing Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
@@ -56,12 +57,14 @@ static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         gps = (gps_t *)event_data;
         /* print information parsed from GPS statements */
         ESP_LOGI(TAG, "%d/%d/%d %d:%d:%d => \r\n"
+                 "\t\t\t\t\t\tvalid   = %d\r\n"
                  "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
                  "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
                  "\t\t\t\t\t\taltitude   = %.02fm\r\n"
                  "\t\t\t\t\t\tspeed      = %fm/s",
                  gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
                  gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                 gps->valid,
                  gps->latitude, gps->longitude, gps->altitude, gps->speed);
         break;
     case GPS_UNKNOWN:
@@ -88,9 +91,9 @@ void app_main() {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     /* unregister event handler */
-    nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
+    // nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
     /* deinit NMEA parser library */
-    nmea_parser_deinit(nmea_hdl);
+    // nmea_parser_deinit(nmea_hdl);
 
     /**
      * main page
@@ -100,18 +103,23 @@ void app_main() {
     /**
      * status bar
      */
-    esp_event_loop_handle_t status_bar_event_hdl = init_status_bar(NULL);
+    //esp_event_loop_handle_t status_bar_event_hdl = init_status_bar(NULL);
 
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    //vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-    update_status_bar(status_bar_event_hdl);
+    //update_status_bar(status_bar_event_hdl);
 
     //vTaskDelay(10000 / portTICK_PERIOD_MS);
     
         //deinit_status_bar(status_bar_event_hdl);
 
     /**
+     *  sd card
+     */
+     //sd_card_init();
+
+    /**
      *  init ble device
      */
-    esp_event_loop_handle_t ble_dev_evt_hdl = ble_device_init(NULL);
+    // esp_event_loop_handle_t ble_dev_evt_hdl = ble_device_init(NULL);
 }

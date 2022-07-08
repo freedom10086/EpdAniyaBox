@@ -10,7 +10,8 @@
 
 #define CYCLING_SPEED_AND_CADENCE_SERVICE_UUID 0x1816 // Cycling Speed and Cadence
 #define DEVICE_INFORMATION_SERVICE_UUID 0x180A
-#define BATTERY_SERVECE 0x180F
+#define BATTERY_LEVEL_SERVICE_UUID 0x180F
+#define BATTERY_LEVEL_CHARACTERISTIC_UUID 0x2A19 // read and notify
 
 #define CSC_MEASUREMENT_CHARACTERISTIC 0x2A5B
 #define CSC_FEATURE_CHARACTERISTIC 0x2A5C
@@ -26,6 +27,6 @@ typedef struct {
     uint16_t last_crank_event_time; // 1/1024s
 } csc_measure_sensor_t;
 
-void ble_parse_csc_data(esp_ble_gattc_cb_param_t *p_data);
+void ble_parse_csc_data(char *device_name, esp_ble_gattc_cb_param_t *p_data);
 
 #endif
