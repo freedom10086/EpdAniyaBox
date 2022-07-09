@@ -15,8 +15,11 @@ extern "C" {
 #define LCD_V_RES 296
 
 typedef struct {
+    spi_device_handle_t spi_dev;
     int busy_gpio_num;
-} ssd1680_vendor_config;
+    int reset_gpio_num; /*!< GPIO used to reset the LCD panel, set to -1 if it's not used */
+    bool reset_level;
+} lcd_ssd1680_panel_t;
 
 /**
  * @brief Create LCD panel for model GC9A01
@@ -29,7 +32,18 @@ typedef struct {
  *          - ESP_ERR_NO_MEM        if out of memory
  *          - ESP_OK                on success
  */
-esp_err_t esp_lcd_new_panel_ssd1680(const esp_lcd_panel_io_handle_t io, const esp_lcd_panel_dev_config_t *panel_dev_config, esp_lcd_panel_handle_t *ret_panel);
+esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
+                            spi_host_device_t bus,
+                            const esp_lcd_panel_io_spi_config_t *io_config);
+
+esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel);
+
+esp_err_t panel_ssd1680_del(lcd_ssd1680_panel_t *panel);
+
+esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel);
+
+esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
+                                           const void *color_data) ;
 
 #ifdef __cplusplus
 }

@@ -7,6 +7,7 @@
 #include <esp_log.h>
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
+#include <esp_timer.h>
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -54,6 +55,7 @@
 static void lv_tick_task(void *arg);
 
 static void guiTask(void *pvParameter);
+static void guiTask_LVGL(void *pvParameter);
 
 static void create_demo_application(lv_obj_t *scr);
 
@@ -61,7 +63,7 @@ void init_main_page() {
     /* If you want to use a task to create the graphic, you NEED to create a Pinned task
      * Otherwise there can be problem such as memory corruption and so on.
      * NOTE: When not using Wi-Fi nor Bluetooth you can pin the guiTask to core 0 */
-    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
+    // xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
 }
 
 /* Creates a semaphore to handle concurrent call to lvgl stuff
@@ -125,27 +127,57 @@ notify_lvgl_flush_ready(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_io_eve
     return false;
 }
 
-static void lvgl_rounder(lv_disp_drv_t *disp_drv, lv_area_t *area) {
-    area->y1 = area->y1 & (~0x7);
-    area->y2 = area->y2 | 0x7;
-}
-
-static void
-lvgl_set_px_cb(lv_disp_drv_t *disp_drv, uint8_t *buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y, lv_color_t color,
-               lv_opa_t opa) {
-    uint16_t byte_index = (y * buf_w + x) >> 3;
-    uint8_t bit_index = x & 0x7;
-
-    if ((color.full == 0) && (LV_OPA_TRANSP != opa)) {
-        buf[byte_index] &= ~(1 << bit_index);
-    } else {
-        buf[byte_index] |= (1 << bit_index);
-    }
-    //if(lv_color_brightness(color) > 128) (*buf) |= (1 << (y % 8));
-    //else (*buf) &= ~(1 << (y % 8));
-}
-
 static void guiTask(void *pvParameter) {
+
+    (void) pvParameter;
+    xGuiSemaphore = xSemaphoreCreateMutex();
+
+    spi_driver_init(TFT_SPI_HOST,
+                    DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
+                    DISP_BUFF_SIZE * sizeof(uint16_t), SPI_DMA_CH_AUTO);
+
+    ESP_LOGI(TAG, "Install panel IO");
+    esp_lcd_panel_io_handle_t io_handle = NULL;
+    esp_lcd_panel_io_spi_config_t io_config = {
+            .dc_gpio_num = DISP_PIN_DC,
+            .cs_gpio_num = DISP_SPI_CS,
+            .pclk_hz = 400000,
+            .lcd_cmd_bits = 8,
+            .lcd_param_bits = 8,
+            .spi_mode = 0,
+            .trans_queue_depth = 10,
+            //.on_color_trans_done = ,
+    };
+
+    lcd_ssd1680_panel_t *panel = malloc(sizeof(lcd_ssd1680_panel_t));
+    panel->busy_gpio_num = DISP_PIN_BUSY;
+
+    // Attach the LCD to the SPI bus
+    ESP_ERROR_CHECK(new_panel_ssd1680(panel, TFT_SPI_HOST, &io_config));
+
+    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t) TFT_SPI_HOST, &io_config, &io_handle));
+
+    ESP_LOGI(TAG, "Install SSD1680 panel driver");
+    panel_ssd1680_reset(panel);
+
+    panel_ssd1680_init(panel);
+
+
+    while (1) {
+        // raise the task priority of LVGL and/or reduce the handler period can improve the performance
+        vTaskDelay(pdMS_TO_TICKS(10));
+
+        /* Try to take the semaphore, call lvgl related function on success */
+        if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
+            // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
+            xSemaphoreGive(xGuiSemaphore);
+        }
+    }
+
+    vTaskDelete(NULL);
+}
+
+static void guiTask_LVGL(void *pvParameter) {
 
     (void) pvParameter;
     xGuiSemaphore = xSemaphoreCreateMutex();
@@ -179,19 +211,36 @@ static void guiTask(void *pvParameter) {
     esp_lcd_panel_dev_config_t panel_config = {
             .flags.reset_active_high = 0,
             .reset_gpio_num = DISP_PIN_RST,
+#ifdef CONFIG_SPI_DISPLAY_SSD1680
             .color_space = ESP_LCD_COLOR_SPACE_MONOCHROME,
             .bits_per_pixel = 1,
+#else
+            .color_space = ESP_LCD_COLOR_SPACE_RGB,
+            .bits_per_pixel = 16,
+#endif
     };
 
-    ssd1680_vendor_config *vendor_config = (ssd1680_vendor_config *) malloc(sizeof(ssd1680_vendor_config));
-    vendor_config->busy_gpio_num = DISP_PIN_BUSY;
-    panel_config.vendor_config = vendor_config;
+    ESP_ERROR_CHECK(esp_lcd_new_panel_st7789(io_handle, &panel_config, &panel_handle));
 
-    ESP_ERROR_CHECK(esp_lcd_new_panel_ssd1680(io_handle, &panel_config, &panel_handle));
+    // Turn off backlight to avoid unpredictable display on the LCD screen while initializing
+    // the LCD panel driver. (Different LCD screens may need different levels)
+#ifdef CONFIG_DISP_PIN_BLK
+    ESP_ERROR_CHECK(gpio_set_level(CONFIG_DISP_PIN_BLK, 1));
+#endif
 
     ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
     ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_handle, true));
+
+    // Turn on the screen
+    ESP_ERROR_CHECK(esp_lcd_panel_disp_on_off(panel_handle, true));
+
+    // Swap x and y axis (Different LCD screens may need different options)
+    ESP_ERROR_CHECK(esp_lcd_panel_swap_xy(panel_handle, true));
+
+#ifdef CONFIG_DISP_PIN_BLK
+    // Turn on backlight (Different LCD screens may need different levels)
+    ESP_ERROR_CHECK(gpio_set_level(CONFIG_DISP_PIN_BLK, 0));
+#endif
 
     ESP_LOGI(TAG, "Initialize LVGL library");
     lv_init();
@@ -212,15 +261,6 @@ static void guiTask(void *pvParameter) {
     disp_drv.flush_cb = lvgl_flush_cb; // Write the internal buffer (draw_buf) to the display. 'lv_disp_flush_ready()' has to be * called when finished
     disp_drv.draw_buf = &disp_buf;
     disp_drv.user_data = panel_handle;
-    disp_drv.full_refresh = 1; //  always redraw the whole screen
-    // If the direct_mode flag is enabled in the display driver LVGL will draw directly into a screen sized frame buffer.
-    // That is the draw buffer(s) needs to be screen sized. It this case flush_cb will be called only once when all dirty areas are redrawn
-    disp_drv.direct_mode = 1;
-    // disp_drv.color_chroma_key A color which will be drawn as transparent on chrome keyed images
-#ifdef CONFIG_SPI_DISPLAY_SSD1680
-    disp_drv.rounder_cb = lvgl_rounder; // MONOCHROME need
-    disp_drv.set_px_cb = lvgl_set_px_cb; // MONOCHROME need
-#endif
 
     lv_disp_t *disp = lv_disp_drv_register(&disp_drv);
 
@@ -254,9 +294,8 @@ static void guiTask(void *pvParameter) {
 
     /* A task should NEVER return */
     free(buf1);
-#ifndef CONFIG_LV_TFT_DISPLAY_MONOCHROME
     free(buf2);
-#endif
+
     vTaskDelete(NULL);
 }
 

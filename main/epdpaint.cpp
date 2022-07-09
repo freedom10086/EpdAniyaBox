@@ -117,11 +117,11 @@ void epd_paint_draw_pixel(ept_paint_t *ept_paint, int x, int y, int colored) {
 void epd_paint_draw_char_at(ept_paint_t *ept_paint, int x, int y, char ascii_char, sFONT *font, int colored) {
     int i, j;
     unsigned int char_offset = (ascii_char - ' ') * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
-    const unsigned char *ptr = &font->table[char_offset];
+    const uint8_t *ptr = &font->table[char_offset];
 
     for (j = 0; j < font->Height; j++) {
         for (i = 0; i < font->Width; i++) {
-            if (pgm_read_byte(ptr) & (0x80 >> (i % 8))) {
+            if (*ptr & (0x80 >> (i % 8))) {
                 epd_paint_draw_pixel(ept_paint, x + i, y + j, colored);
             }
             if (i % 8 == 7) {
@@ -137,7 +137,7 @@ void epd_paint_draw_char_at(ept_paint_t *ept_paint, int x, int y, char ascii_cha
 /**
 *  @brief: ept_paint displays a string on the frame buffer but not refresh
 */
-void epd_paint_DrawStringAt(ept_paint_t *ept_paint, int x, int y, const char *text, sFONT *font, int colored) {
+void epd_paint_draw_string_at(ept_paint_t *ept_paint, int x, int y, const char *text, sFONT *font, int colored) {
     const char *p_text = text;
     unsigned int counter = 0;
     int refcolumn = x;
@@ -157,7 +157,7 @@ void epd_paint_DrawStringAt(ept_paint_t *ept_paint, int x, int y, const char *te
 /**
 *  @brief: draws a line on the frame buffer
 */
-void epd_paint_DrawLine(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
+void epd_paint_draw_line(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
     /* Bresenham algorithm */
     int dx = x1 - x0 >= 0 ? x1 - x0 : x0 - x1;
     int sx = x0 < x1 ? 1 : -1;
@@ -199,7 +199,7 @@ void epd_paint_draw_vertical_line(ept_paint_t *ept_paint, int x, int y, int line
 }
 
 
-void epd_paint_DrawRectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
+void epd_paint_draw_rectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
     int min_x, min_y, max_x, max_y;
     min_x = x1 > x0 ? x0 : x1;
     max_x = x1 > x0 ? x1 : x0;
@@ -215,7 +215,7 @@ void epd_paint_DrawRectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int
 /**
 *  @brief: ept_paint draws a filled rectangle
 */
-void epd_paint_DrawFilledRectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
+void epd_paint__draw_filled_rectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored) {
     int min_x, min_y, max_x, max_y;
     int i;
     min_x = x1 > x0 ? x0 : x1;
@@ -228,7 +228,7 @@ void epd_paint_DrawFilledRectangle(ept_paint_t *ept_paint, int x0, int y0, int x
     }
 }
 
-void epd_paint_DrawCircle(ept_paint_t *ept_paint, int x, int y, int radius, int colored) {
+void epd_paint_draw_circle(ept_paint_t *ept_paint, int x, int y, int radius, int colored) {
     /* Bresenham algorithm */
     int x_pos = -radius;
     int y_pos = 0;

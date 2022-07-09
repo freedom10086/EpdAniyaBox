@@ -1,11 +1,11 @@
-menu "My Project Configuration"
+menu "My Project Config"
 
-    menu "Display Pin Assignments"
+    menu "LCD Config"
         comment "config spi display stuff."
 
         choice
             default SPI_DISPLAY_SSD1680
-            prompt "Select the display driver type."
+            prompt "LCD Display Type: "
             help
                   Select the display driver type.
 
@@ -49,14 +49,23 @@ menu "My Project Configuration"
 
         config DISP_PIN_RST
             int "GPIO for Reset"
-            default 6
+            default 1
 
             help
                 Configure the display Reset pin here.
 
+        config DISP_PIN_BLK
+            depends on SPI_DISPLAY_ST7789
+            int "GPIO for backlight control"
+            default 2
+
+            help
+                Configure the display backlight pin here.
+
         config DISP_PIN_BUSY
+            depends on SPI_DISPLAY_SSD1680
             int "GPIO for Busy"
-            default -1
+            default 2
 
             help
                 Configure the display Busy pin here.
@@ -205,6 +214,11 @@ menu "My Project Configuration"
             int "SD_CARD_CS PIN NUM"
             range -1 60
             default 8
+    endmenu
+
+    menu "BLE Device Config"
+        comment "config ble device"
+
     endmenu
 
 endmenu

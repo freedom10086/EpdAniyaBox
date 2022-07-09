@@ -29,7 +29,6 @@
 #include "lvgl/lvgl.h"
 #endif
 
-#include "lvgl_helpers.h"
 #include "status_bar.h"
 #include "main_page.h"
 #include "nmea_parser.h"
