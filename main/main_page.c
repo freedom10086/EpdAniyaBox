@@ -162,6 +162,7 @@ static void guiTask(void *pvParameter) {
 
     ESP_LOGI(TAG, "Init SSD1680 panel");
     panel_ssd1680_init(&panel);
+    // panel_ssd1680_init_partial(&panel);
 
     while (1) {
         // raise the task priority of LVGL and/or reduce the handler period can improve the performance

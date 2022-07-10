@@ -43,34 +43,34 @@ typedef struct {
     int width;
     int height;
     int rotate;
-} ept_paint_t;
+} epd_paint_t;
 
-void epd_paint_init(ept_paint_t *epd, unsigned char *image, int width, int height);
+void epd_paint_init(epd_paint_t *epd, unsigned char *image, int width, int height);
 
-void epd_paint_deinit(ept_paint_t *ept_paint);
+void epd_paint_deinit(epd_paint_t *epd_paint);
 
-void ept_paint_clear(ept_paint_t *ept_paint, int colored);
+void epd_paint_clear(epd_paint_t *epd_paint, int colored);
 
-void ept_paint_draw_absolute_pixel(ept_paint_t *ept_paint, int x, int y, int colored);
+void epd_paint_draw_absolute_pixel(epd_paint_t *epd_paint, int x, int y, int colored);
 
-void ept_paint_draw_pixel(ept_paint_t *ept_paint, int x, int y, int colored);
+void epd_paint_draw_pixel(epd_paint_t *epd_paint, int x, int y, int colored);
 
-void ept_paint_draw_char_at(ept_paint_t *ept_paint, int x, int y, char ascii_char, sFONT *font, int colored);
+void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_char, sFONT *font, int colored);
 
-void ept_paint_draw_string_at(ept_paint_t *ept_paint, int x, int y, const char *text, sFONT *font, int colored);
+void epd_paint_draw_string_at(epd_paint_t *epd_paint, int x, int y, const char *text, sFONT *font, int colored);
 
-void ept_paint_draw_line(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored);
+void epd_paint_draw_line(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored);
 
-void ept_paint_draw_horizontal_line(ept_paint_t *ept_paint, int x, int y, int width, int colored);
+void epd_paint_draw_horizontal_line(epd_paint_t *epd_paint, int x, int y, int width, int colored);
 
-void ept_paint_draw_vertical_line(ept_paint_t *ept_paint, int x, int y, int height, int colored);
+void epd_paint_draw_vertical_line(epd_paint_t *epd_paint, int x, int y, int height, int colored);
 
-void ept_paint_draw_rectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored);
+void epd_paint_draw_rectangle(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored);
 
-void ept_paint_draw_filled_rectangle(ept_paint_t *ept_paint, int x0, int y0, int x1, int y1, int colored);
+void epd_paint_draw_filled_rectangle(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored);
 
-void ept_paint_draw_circle(ept_paint_t *ept_paint, int x, int y, int radius, int colored);
+void epd_paint_draw_circle(epd_paint_t *epd_paint, int x, int y, int radius, int colored);
 
-void ept_paint_draw_filled_circle(ept_paint_t *ept_paint, int x, int y, int radius, int colored);
+void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radius, int colored);
 
 #endif

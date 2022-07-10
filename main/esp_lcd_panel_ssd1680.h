@@ -38,6 +38,8 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
 
 esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel);
 
+esp_err_t panel_ssd1680_init_partial(lcd_ssd1680_panel_t *panel);
+
 esp_err_t panel_ssd1680_del(lcd_ssd1680_panel_t *panel);
 
 esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel);
