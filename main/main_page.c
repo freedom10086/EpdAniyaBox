@@ -63,7 +63,7 @@ void init_main_page() {
     /* If you want to use a task to create the graphic, you NEED to create a Pinned task
      * Otherwise there can be problem such as memory corruption and so on.
      * NOTE: When not using Wi-Fi nor Bluetooth you can pin the guiTask to core 0 */
-    // xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
+    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
 }
 
 /* Creates a semaphore to handle concurrent call to lvgl stuff
@@ -137,7 +137,6 @@ static void guiTask(void *pvParameter) {
                     DISP_BUFF_SIZE * sizeof(uint16_t), SPI_DMA_CH_AUTO);
 
     ESP_LOGI(TAG, "Install panel IO");
-    esp_lcd_panel_io_handle_t io_handle = NULL;
     esp_lcd_panel_io_spi_config_t io_config = {
             .dc_gpio_num = DISP_PIN_DC,
             .cs_gpio_num = DISP_SPI_CS,
@@ -149,19 +148,20 @@ static void guiTask(void *pvParameter) {
             //.on_color_trans_done = ,
     };
 
-    lcd_ssd1680_panel_t *panel = malloc(sizeof(lcd_ssd1680_panel_t));
-    panel->busy_gpio_num = DISP_PIN_BUSY;
+    lcd_ssd1680_panel_t panel = {
+            .busy_gpio_num = DISP_PIN_BUSY,
+            .reset_gpio_num = DISP_PIN_RST,
+            .reset_level = 0,
+    };
 
     // Attach the LCD to the SPI bus
-    ESP_ERROR_CHECK(new_panel_ssd1680(panel, TFT_SPI_HOST, &io_config));
+    ESP_ERROR_CHECK(new_panel_ssd1680(&panel, TFT_SPI_HOST, &io_config));
 
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t) TFT_SPI_HOST, &io_config, &io_handle));
+    ESP_LOGI(TAG, "Reset SSD1680 panel driver");
+    panel_ssd1680_reset(&panel);
 
-    ESP_LOGI(TAG, "Install SSD1680 panel driver");
-    panel_ssd1680_reset(panel);
-
-    panel_ssd1680_init(panel);
-
+    ESP_LOGI(TAG, "Init SSD1680 panel");
+    panel_ssd1680_init(&panel);
 
     while (1) {
         // raise the task priority of LVGL and/or reduce the handler period can improve the performance

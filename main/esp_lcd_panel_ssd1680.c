@@ -60,15 +60,13 @@ static const uint8_t lut_full_update[] = {
 #define SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER      0x4F
 
 
-void lcd_spi_pre_transfer_callback(spi_transaction_t *t)
-{
-    int dc=(int)t->user;
+void lcd_spi_pre_transfer_callback(spi_transaction_t *t) {
+    int dc = (int) t->user;
     gpio_set_level(CONFIG_DISP_PIN_DC, dc);
 }
 
 
-static void lcd_spi_post_trans_callback(spi_transaction_t *trans)
-{
+static void lcd_spi_post_trans_callback(spi_transaction_t *trans) {
 }
 
 esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
@@ -84,11 +82,11 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
         ESP_GOTO_ON_ERROR(gpio_config(&io_conf), err, TAG, "configure GPIO for RST line failed");
     }
 
-    if (panel -> busy_gpio_num >= 0) {
+    if (panel->busy_gpio_num >= 0) {
         // setup gpio
-        ESP_LOGI(TAG, "busy pin is %d", panel -> busy_gpio_num);
+        ESP_LOGI(TAG, "busy pin is %d", panel->busy_gpio_num);
         gpio_config_t io_config = {
-                .pin_bit_mask = (1ull << panel -> busy_gpio_num),
+                .pin_bit_mask = (1ull << panel->busy_gpio_num),
                 .mode = GPIO_MODE_INPUT,
         };
         ESP_ERROR_CHECK(gpio_config(&io_config));
@@ -106,11 +104,12 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
             .spics_io_num = io_config->cs_gpio_num,
             .queue_size = io_config->trans_queue_depth,
             .pre_cb = lcd_spi_pre_transfer_callback, // pre-transaction callback, mainly control DC gpio level
-            .post_cb = io_config->on_color_trans_done ? lcd_spi_post_trans_callback : NULL, // post-transaction, where we invoke user registered "on_color_trans_done()"
+            .post_cb = io_config->on_color_trans_done ? lcd_spi_post_trans_callback
+                                                      : NULL, // post-transaction, where we invoke user registered "on_color_trans_done()"
     };
 
     spi_device_handle_t spi_dev;
-    ret = spi_bus_add_device((spi_host_device_t)bus, &devcfg, &spi_dev);
+    ret = spi_bus_add_device((spi_host_device_t) bus, &devcfg, &spi_dev);
     ESP_GOTO_ON_ERROR(ret, err, TAG, "adding spi device to bus failed");
 
     panel->spi_dev = spi_dev;
@@ -139,41 +138,36 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
     return ret;
 }
 
-static esp_err_t lcd_cmd(lcd_ssd1680_panel_t *panel, const uint8_t cmd, const void *param, size_t param_size)
-{
-
+static esp_err_t lcd_data(lcd_ssd1680_panel_t *panel, const uint8_t *data, size_t len) {
+    ESP_LOGI(TAG, "lcd data 0x%02x", *data);
     esp_err_t ret;
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length=8;                     //Command is 8 bits
-    t.tx_buffer=&cmd;               //The data is the cmd itself
-    t.user=(void*)0;                //D/C needs to be set to 0
-    ret=spi_device_polling_transmit(panel->spi_dev, &t);  //Transmit!
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) cmd failed");
-
-    if (param && param_size) {
-        memset(&t, 0, sizeof(t));       //Zero out the transaction
-        t.length=param_size;                     //Command is 8 bits
-        t.tx_buffer=&cmd;               //The data is the cmd itself
-        t.user=(void*)1;                //D/C needs to be set to 0
-        ret=spi_device_polling_transmit(panel->spi_dev, &t);  //Transmit!
-        ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) param failed");
-    }
+    t.length = len * 8;                 //Len is in bytes, transaction length is in bits.
+    t.tx_buffer = data;               //Data
+    t.user = (void *) 1;                //D/C needs to be set to 1
+    ret = spi_device_polling_transmit(panel->spi_dev, &t);  //Transmit!
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) data failed");
 
     err:
     return ret;
 }
 
-static esp_err_t lcd_data(spi_device_handle_t spi, const uint8_t *data, int len)
-{
+static esp_err_t lcd_cmd(lcd_ssd1680_panel_t *panel, const uint8_t cmd, const void *param, size_t param_size) {
+    ESP_LOGI(TAG, "lcd cmd 0x%02x", cmd);
     esp_err_t ret;
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length=len*8;                 //Len is in bytes, transaction length is in bits.
-    t.tx_buffer=data;               //Data
-    t.user=(void*)1;                //D/C needs to be set to 1
-    ret=spi_device_polling_transmit(spi, &t);  //Transmit!
-    ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) data failed");
+    t.length = 8;                     //Command is 8 bits
+    t.tx_buffer = &cmd;               //The data is the cmd itself
+    t.user = (void *) 0;                //D/C needs to be set to 0
+    ret = spi_device_polling_transmit(panel->spi_dev, &t);  //Transmit!
+    ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) cmd failed");
+
+    if (param && param_size) {
+        ret =lcd_data(panel, param, param_size);
+        ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) data failed");
+    }
 
     err:
     return ret;
@@ -212,7 +206,7 @@ static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
 }
 
 esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel) {
-    ESP_LOGI(TAG, "lcd panel start reset.");
+    ESP_LOGI(TAG, "lcd panel start hw reset.");
 
     // perform hardware reset
     if (panel->reset_gpio_num >= 0) {
@@ -225,13 +219,13 @@ esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel) {
         wait_for_busy(panel);
     }
 
-    ESP_LOGI(TAG, "lcd panel hw reset.");
+    ESP_LOGI(TAG, "lcd panel hw reset OK.");
 
     return ESP_OK;
 }
 
 esp_err_t panel_ssd1680_sw_reset(lcd_ssd1680_panel_t *panel) {
-    ESP_LOGI(TAG, "lcd panel start reset.");
+    ESP_LOGI(TAG, "lcd panel start sw reset.");
 
     // sw reset
     lcd_cmd(panel, SSD1680_CMD_SOFT_RESET, NULL, 0);
@@ -248,11 +242,11 @@ set_mem_area(lcd_ssd1680_panel_t *ssd1680, uint16_t start_x, uint16_t start_y, u
     //0x0F-->(15+1)*8=128
     /* x point must be the multiple of 8 or the last 3 bits will be ignored */
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_START_END,
-                              (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
+            (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
 
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_START_END,
-                              (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, end_y & 0xff, (end_y >> 8) & 0xff},
-                              4);
+            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, end_y & 0xff, (end_y >> 8) & 0xff},
+            4);
 
     return ESP_OK;
 }
@@ -260,7 +254,7 @@ set_mem_area(lcd_ssd1680_panel_t *ssd1680, uint16_t start_x, uint16_t start_y, u
 static esp_err_t set_mem_pointer(lcd_ssd1680_panel_t *ssd1680, uint16_t x, uint16_t y) {
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER, (uint8_t[]) {(x >> 3) & 0xff}, 1);
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER,
-                              (uint8_t[]) {y & 0xff, (y >> 8) & 0xff}, 2);
+            (uint8_t[]) {y & 0xff, (y >> 8) & 0xff}, 2);
     wait_for_busy(ssd1680);
     return ESP_OK;
 }
@@ -285,10 +279,11 @@ static esp_err_t clear_display(lcd_ssd1680_panel_t *panel, uint8_t color) {
     set_mem_area(panel, 0, 0, LCD_H_RES - 1, LCD_V_RES - 1);
     set_mem_pointer(panel, 0, 0);
 
-    size_t len = LCD_H_RES * LCD_V_RES  / 8;
+    size_t len = LCD_H_RES * LCD_V_RES / 8;
+    lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
     for (int j = 0; j < LCD_V_RES; j++) {
         for (int i = 0; i < LCD_H_RES / 8; i++) {
-            lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, color, 1);
+            lcd_data(panel, &color, 1);
         }
     }
 
@@ -316,7 +311,8 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
 
     // 3. Send Initialization Code
     // Set gate driver output by Command 0x01
-    lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL, (uint8_t[]) {(LCD_V_RES -1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
+    lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL,
+            (uint8_t[]) {(LCD_V_RES - 1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
     wait_for_busy(panel);
 
     lcd_cmd(panel, SSD1680_CMD_BOOSTER_SOFT_START_CONTROL, (uint8_t[]) {0xD7, 0xD6, 0x9D}, 3);
@@ -361,7 +357,6 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
 
     clear_display(panel, 0xff);
 
-    //set_lut_by_host(ssd1680, WS_20_30);
     ESP_LOGI(TAG, "ssd1680 panel init ok !");
     return ESP_OK;
 }
@@ -370,7 +365,7 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
  * x_start, y_start include, x_end, y_end not include
  */
 esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
-                                           const void *color_data) {
+                                    const void *color_data) {
 
     assert((x_start < x_end) && (y_start < y_end) && "start position must be smaller than end position");
 
