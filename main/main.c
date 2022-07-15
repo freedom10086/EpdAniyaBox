@@ -26,7 +26,9 @@
 #ifdef LV_LVGL_H_INCLUDE_SIMPLE
 #include "lvgl.h"
 #else
+
 #include "lvgl/lvgl.h"
+
 #endif
 
 #include "status_bar.h"
@@ -34,6 +36,7 @@
 #include "nmea_parser.h"
 #include "ble_device.h"
 #include "sd_card.h"
+#include "ms5611.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -48,30 +51,30 @@ static const char *TAG = "BIKE_MAIN";
  * @param event_id event id
  * @param event_data event specific arguments
  */
-static void gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
-{
+static void
+gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     gps_t *gps = NULL;
     switch (event_id) {
-    case GPS_UPDATE:
-        gps = (gps_t *)event_data;
-        /* print information parsed from GPS statements */
-        ESP_LOGI(TAG, "%d/%d/%d %d:%d:%d => \r\n"
-                 "\t\t\t\t\t\tvalid   = %d\r\n"
-                 "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
-                 "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
-                 "\t\t\t\t\t\taltitude   = %.02fm\r\n"
-                 "\t\t\t\t\t\tspeed      = %fm/s",
-                 gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
-                 gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
-                 gps->valid,
-                 gps->latitude, gps->longitude, gps->altitude, gps->speed);
-        break;
-    case GPS_UNKNOWN:
-        /* print unknown statements */
-        ESP_LOGW(TAG, "Unknown statement:%s", (char *)event_data);
-        break;
-    default:
-        break;
+        case GPS_UPDATE:
+            gps = (gps_t *) event_data;
+            /* print information parsed from GPS statements */
+            ESP_LOGI(TAG, "%d/%d/%d %d:%d:%d => \r\n"
+                          "\t\t\t\t\t\tvalid   = %d\r\n"
+                          "\t\t\t\t\t\tlatitude   = %.05f°N\r\n"
+                          "\t\t\t\t\t\tlongitude = %.05f°E\r\n"
+                          "\t\t\t\t\t\taltitude   = %.02fm\r\n"
+                          "\t\t\t\t\t\tspeed      = %fm/s",
+                     gps->date.year + YEAR_BASE, gps->date.month, gps->date.day,
+                     gps->tim.hour + TIME_ZONE, gps->tim.minute, gps->tim.second,
+                     gps->valid,
+                     gps->latitude, gps->longitude, gps->altitude, gps->speed);
+            break;
+        case GPS_UNKNOWN:
+            /* print unknown statements */
+            ESP_LOGW(TAG, "Unknown statement:%s", (char *) event_data);
+            break;
+        default:
+            break;
     }
 }
 
@@ -109,16 +112,41 @@ void app_main() {
     //update_status_bar(status_bar_event_hdl);
 
     //vTaskDelay(10000 / portTICK_PERIOD_MS);
-    
-        //deinit_status_bar(status_bar_event_hdl);
+
+    //deinit_status_bar(status_bar_event_hdl);
 
     /**
      *  sd card
      */
-     //sd_card_init();
+    //sd_card_init();
 
     /**
      *  init ble device
      */
     // esp_event_loop_handle_t ble_dev_evt_hdl = ble_device_init(NULL);
+
+    /**
+     * ms5611
+     */
+    ms5611_init();
+
+    float sumHeight = 0;
+    for (int i = 0; i < 10; ++i) {
+        if (i == 0) {
+            vTaskDelay(pdMS_TO_TICKS(2));
+            ms5611_read_temp_pre();
+            vTaskDelay(pdMS_TO_TICKS(20));
+            ms5611_read_temp();
+        }
+        ms5611_read_pressure_pre();
+        vTaskDelay(pdMS_TO_TICKS(25));
+        ms5611_read_pressure();
+
+        float height = ms5611_pressure_caculate();
+        ESP_LOGI(TAG, "ms5611 height: %f", height);
+
+        sumHeight += height;
+    }
+
+    ESP_LOGI(TAG, "avg height ms5611 height: %f", sumHeight / 10);
 }
