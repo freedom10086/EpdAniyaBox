@@ -37,6 +37,7 @@
 #include "ble_device.h"
 #include "sd_card.h"
 #include "ms5611.h"
+#include "spl06.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -100,7 +101,7 @@ void app_main() {
     /**
      * main page
      */
-    init_main_page();
+    // init_main_page();
 
     /**
      * status bar
@@ -125,9 +126,8 @@ void app_main() {
      */
     // esp_event_loop_handle_t ble_dev_evt_hdl = ble_device_init(NULL);
 
-    /**
-     * ms5611
-     */
+    /*
+    // ms5611
     ms5611_init();
 
     float sumHeight = 0;
@@ -149,4 +149,8 @@ void app_main() {
     }
 
     ESP_LOGI(TAG, "avg height ms5611 height: %f", sumHeight / 10);
+
+    */
+
+    spl06_init();
 }
