@@ -120,6 +120,8 @@ int16_t c20 = 0;
 int16_t c21 = 0;
 int16_t c30 = 0;
 
+static void spl06_task_entry(void *arg);
+
 /**
  * @brief Read a sequence of bytes from a MPU9250 sensor registers
  */
@@ -220,7 +222,13 @@ static float scale_factor(int oversampling_rate) {
     return k;
 }
 
-void spl06_init(spl06_t *spl06) {
+spl06_t *spl06_init() {
+    spl06_t *spl06 = calloc(1, sizeof(spl06_t));
+    if (!spl06) {
+        ESP_LOGE(TAG, "calloc memory for spl06 failed");
+        return NULL;
+    }
+
     i2c_config_t conf = {
             .mode = I2C_MODE_MASTER,
             .sda_io_num = I2C_MASTER_SDA_IO,         // select GPIO specific to your project
@@ -238,7 +246,178 @@ void spl06_init(spl06_t *spl06) {
     ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, conf.mode, 0, 0, 0));
     ESP_LOGI(TAG, "spl06 I2C initialized successfully sda: %d, scl:%d", I2C_MASTER_SDA_IO, I2C_MASTER_SCL_IO);
 
+    // todo set outer
+    spl06->oversampling_t = 16;
+    spl06->oversampling_p = 64;
+    spl06->raw_temp_valid = 0;
+
+    /* Create NMEA Parser task */
+    BaseType_t err = xTaskCreate(
+            spl06_task_entry,
+            "spl06",
+            2048,
+            spl06,
+            5,
+            NULL);
+    if (err != pdTRUE) {
+        ESP_LOGE(TAG, "create spl06 task failed");
+        free(spl06);
+        return NULL;
+    }
+
+    ESP_LOGI(TAG, "create spl06 task success");
+    return spl06;
+}
+
+void spl06_reset(spl06_t *spl06) {
+    i2c_write_data(RESET, 0b10001001);
+    ESP_LOGI(TAG, "reset...");
+    vTaskDelay(pdMS_TO_TICKS(5));
+
+    spl06->fifo_len = 0;
+}
+
+void spl06_start(spl06_t *spl06, bool en_fifo) {
+    spl06->en_fifo = en_fifo;
+
+    i2c_write_data(PRS_CFG,
+                   2 << 4 | oversampling_rate_to_state(
+                           spl06->oversampling_p));    // Pressure 4 measure per second, 64x oversampling, 104ms - 420ms
+    i2c_write_data(TMP_CFG, 1 << 7 | 2 << 4 |
+                            oversampling_rate_to_state(
+                                    spl06->oversampling_t));    // Temp 4 measure per second, 16x oversampling, 57.6ms - 230ms
+
+    i2c_write_data(CFG_REG, (spl06->oversampling_t > 8 ? 1 : 0) << 3 // temp shift
+                            | (spl06->oversampling_p > 8 ? 1 : 0) << 2 // pressure shift
+                            | (spl06->en_fifo ? 1 : 0) << 1); // en fifo
+
+    i2c_write_data(MEAS_CFG, 0b0111); // background continuous temp and pressure measurement
+
+    // clear fifo
+    i2c_write_data(RESET, 0x80);
+}
+
+void spl06_stop(spl06_t *spl06) {
+    i2c_write_data(MEAS_CFG, 0b0000);
+    spl06->meas_ctrl = 0x00;
+}
+
+void spl06_fifo_state(spl06_t *spl06) {
+    uint8_t fifo_state = 0;
+
+    // check fifo en
+    i2c_read(CFG_REG, &fifo_state, 1);
+    spl06->en_fifo = (fifo_state >> 1) & 0x01;
+    // ESP_LOGI(TAG, "config state %x", fifo_state);
+
+    if (spl06->en_fifo) {
+        fifo_state = 0;
+        i2c_read(FIFO_STS, &fifo_state, 1);
+
+        spl06->fifo_empty = fifo_state & 0x01;
+        spl06->fifo_full = (fifo_state >> 1) & 0x01;
+
+        ESP_LOGI(TAG, "fifo state %x", fifo_state);
+    } else {
+        spl06->fifo_empty = false;
+        spl06->fifo_full = false;
+    }
+}
+
+void spl06_meassure_state(spl06_t *spl06) {
+    uint8_t state = 0;
+    i2c_read(MEAS_CFG, &state, 1);
+
+    spl06->coef_ready = (state >> 7) & 0x01;
+    spl06->sensor_ready = (state >> 6) & 0x01;
+    spl06->temp_ready = (state >> 5) & 0x01;
+    spl06->pressure_ready = (state >> 4) & 0x01;
+    spl06->meas_ctrl = state & 0x07;
+
+    // ESP_LOGI(TAG, "measure state %x", state);
+}
+
+/**
+ * 最后一位
+ * '1' if the result is a pressure measurement.
+ * '0' if it is a temperature measurement.
+ */
+void spl06_read_raw_fifo(spl06_t *spl06) {
+    spl06->fifo_len = 0;
+    while (1) {
+        uint8_t buf[3] = {0};
+        i2c_read(PSR_B2, buf, 1);
+        i2c_read(PSR_B1, &buf[1], 1);
+        i2c_read(PSR_B0, &buf[2], 1);
+        uint32_t fifo_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
+        if (fifo_raw == 0x800000) {
+            // no data
+            return;
+        }
+        if (fifo_raw & 0x800000) {
+            fifo_raw = 0xFF000000 | fifo_raw;
+        }
+
+        spl06->fifo[spl06->fifo_len] = fifo_raw;
+        spl06->fifo_len = spl06->fifo_len + 1;
+        if (spl06->fifo_len >= 32) {
+            return;
+        }
+    }
+}
+
+uint32_t spl06_read_raw_temp(spl06_t *spl06) {
+    uint8_t buf[3] = {0};
+    i2c_read(TMP_B2, &buf[0], 1);
+    i2c_read(TMP_B1, &buf[1], 1);
+    i2c_read(TMP_B0, &buf[2], 1);
+
+    uint32_t temp_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
+    if (temp_raw & 0x800000) {
+        temp_raw = 0xFF000000 | temp_raw;
+    }
+    spl06->raw_temp = temp_raw;
+    spl06->raw_temp_valid = true;
+    return temp_raw;
+}
+
+uint32_t spl06_read_raw_pressure(spl06_t *spl06) {
+    uint8_t buf[3] = {0};
+    i2c_read(PSR_B2, &buf[0], 1);
+    i2c_read(PSR_B1, &buf[1], 1);
+    i2c_read(PSR_B0, &buf[2], 1);
+
+    int32_t pressure_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
+    if (pressure_raw & 0x800000) {
+        pressure_raw = 0xFF000000 | pressure_raw;
+    }
+
+    spl06->raw_pressure = pressure_raw;
+    return pressure_raw;
+}
+
+float spl06_get_temperature(spl06_t *spl06) {
+    float fTsc = (float) spl06->raw_temp / scale_factor(spl06->oversampling_t);
+    float temp = (float) c0 * 0.5f + (float) c1 * fTsc;
+    return temp;
+}
+
+float spl06_get_pressure(spl06_t *spl06) {
+    float fPsc = (float) spl06->raw_pressure / scale_factor(spl06->oversampling_p);
+    float fTsc = (float) spl06->raw_temp / scale_factor(spl06->oversampling_t);
+
+    float qua2 = (float) c10 + fPsc * ((float) c20 + fPsc * (float) c30);
+    float qua3 = fTsc * fPsc * ((float) c11 + fPsc * (float) c21);
+
+    float pressure = (float) c00 + fPsc * qua2 + fTsc * (float) c01 + qua3;
+    return pressure;
+}
+
+static void spl06_task_entry(void *arg) {
+    spl06_t *spl06 = (spl06_t *) arg;
+
     spl06_reset(spl06);
+    vTaskDelay(pdMS_TO_TICKS(30));
 
     // wait for COEF READY
     while (1) {
@@ -249,7 +428,7 @@ void spl06_init(spl06_t *spl06) {
         }
 
         ESP_LOGI(TAG, "spl06 wait for coef ready...");
-        vTaskDelay(pdMS_TO_TICKS(5));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 
     // load COEF from 0x10 - 0x21
@@ -330,152 +509,46 @@ void spl06_init(spl06_t *spl06) {
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 
-    // todo set outer
-    spl06->oversampling_t = 16;
-    spl06->oversampling_p = 64;
-    spl06->raw_temp_valid = 0;
-}
+    spl06_start(spl06, false);
 
-void spl06_reset(spl06_t *spl06) {
-    i2c_write_data(RESET, 0b10001001);
-    ESP_LOGI(TAG, "reset...");
-    vTaskDelay(pdMS_TO_TICKS(5));
-
-    spl06->fifo_len = 0;
-}
-
-void spl06_start(spl06_t *spl06, bool en_fifo) {
-    spl06->en_fifo = en_fifo;
-
-    i2c_write_data(PRS_CFG,
-                   2 << 4 | oversampling_rate_to_state(
-                           spl06->oversampling_p));    // Pressure 4 measure per second, 64x oversampling, 104ms - 420ms
-    i2c_write_data(TMP_CFG, 1 << 7 | 2 << 4 |
-                            oversampling_rate_to_state(
-                                    spl06->oversampling_t));    // Temp 4 measure per second, 16x oversampling, 57.6ms - 230ms
-
-    i2c_write_data(CFG_REG, (spl06->oversampling_t > 8 ? 1 : 0) << 3 // temp shift
-                            | (spl06->oversampling_p > 8 ? 1 : 0) << 2 // pressure shift
-                            | (spl06->en_fifo ? 1 : 0) << 1); // en fifo
-
-    i2c_write_data(MEAS_CFG, 0b0111); // background continuous temp and pressure measurement
-
-    // clear fifo
-    i2c_write_data(RESET, 0x80);
-}
-
-void spl06_stop(spl06_t *spl06) {
-    i2c_write_data(MEAS_CFG, 0b0000);
-    spl06->meas_ctrl = 0x00;
-}
-
-void spl06_fifo_state(spl06_t *spl06) {
-    uint8_t fifo_state = 0;
-
-    // check fifo en
-    i2c_read(CFG_REG, &fifo_state, 1);
-    spl06->en_fifo = (fifo_state >> 1) & 0x01;
-    ESP_LOGI(TAG, "config state %x", fifo_state);
-
-    if (spl06->en_fifo) {
-        fifo_state = 0;
-        i2c_read(FIFO_STS, &fifo_state, 1);
-
-        spl06->fifo_empty = fifo_state & 0x01;
-        spl06->fifo_full = (fifo_state >> 1) & 0x01;
-
-        ESP_LOGI(TAG, "fifo state %x", fifo_state);
-    } else {
-        spl06->fifo_empty = false;
-        spl06->fifo_full = false;
-    }
-}
-
-void spl06_meassure_state(spl06_t *spl06) {
-    uint8_t state = 0;
-    i2c_read(MEAS_CFG, &state, 1);
-
-    spl06->coef_ready = (state >> 7) & 0x01;
-    spl06->sensor_ready = (state >> 6) & 0x01;
-    spl06->temp_ready = (state >> 5) & 0x01;
-    spl06->pressure_ready = (state >> 4) & 0x01;
-    spl06->meas_ctrl = state & 0x07;
-
-    ESP_LOGI(TAG, "measure state %x", state);
-}
-
-/**
- * 最后一位
- * '1' if the result is a pressure measurement.
- * '0' if it is a temperature measurement.
- */
-void spl06_read_raw_fifo(spl06_t *spl06) {
-    spl06->fifo_len = 0;
     while (1) {
-        uint8_t buf[3] = {0};
-        i2c_read(PSR_B2, buf, 1);
-        i2c_read(PSR_B1, &buf[1], 1);
-        i2c_read(PSR_B0, &buf[2], 1);
-        uint32_t fifo_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
-        if (fifo_raw == 0x800000) {
-            // no data
-            return;
-        }
-        if (fifo_raw & 0x800000) {
-            fifo_raw = 0xFF000000 | fifo_raw;
-        }
+        spl06_meassure_state(spl06);
+        spl06_fifo_state(spl06);
+        vTaskDelay(pdMS_TO_TICKS(1000));
 
-        spl06->fifo[spl06->fifo_len] = fifo_raw;
-        spl06->fifo_len = spl06->fifo_len + 1;
-        if (spl06->fifo_len >= 32) {
-            return;
+        if (spl06->en_fifo) {
+            // read from fifo
+            if (spl06->fifo_full) {
+                spl06_read_raw_fifo(spl06);
+                ESP_LOGI(TAG, "spl06 read fifo %d", spl06->fifo_len);
+                for (uint8_t i = 0; i < spl06->fifo_len; i++) {
+                    bool is_pressure = spl06->fifo[i] & 0x01;
+                    int32_t item = spl06->fifo[i]; // >> 1;
+                    if (is_pressure) {
+                        spl06->raw_pressure = item;
+                        ESP_LOGI(TAG, "spl06 fifo pressure data %d %f, ", i, spl06_get_pressure(spl06));
+                    } else {
+                        spl06->raw_temp = item;
+                        ESP_LOGI(TAG, "spl06 fifo temp data %d %f, ", i, spl06_get_temperature(spl06));
+                    }
+                }
+            }
+        } else {
+            if (spl06->pressure_ready && spl06->raw_temp_valid) {
+                spl06_read_raw_pressure(spl06);
+                float pressure = spl06_get_pressure(spl06);
+                //float kal_pressure = kalman1_filter(&state1, pressure);
+                ESP_LOGI(TAG, "spl06 raw_pressure %d,  pressure: %f altitude:%f altitudeV2:%f",
+                         spl06->raw_pressure, pressure, calc_altitude(pressure), calc_altitude_v2(pressure));
+                //printf("pressure:%f,raw_pressure:%d,kal_kal_pressure:%f\n", pressure, spl06.raw_pressure, kal_pressure);
+            }
+
+            if (spl06->temp_ready) {
+                spl06_read_raw_temp(spl06);
+                float temp = spl06_get_temperature(spl06);
+                ESP_LOGI(TAG, "spl06 raw_temp %d,  temp: %f", spl06->raw_temp, temp);
+                //printf("temp:%f\n", temp);
+            }
         }
     }
-}
-
-uint32_t spl06_read_raw_temp(spl06_t *spl06) {
-    uint8_t buf[3] = {0};
-    i2c_read(TMP_B2, &buf[0], 1);
-    i2c_read(TMP_B1, &buf[1], 1);
-    i2c_read(TMP_B0, &buf[2], 1);
-
-    uint32_t temp_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
-    if (temp_raw & 0x800000) {
-        temp_raw = 0xFF000000 | temp_raw;
-    }
-    spl06->raw_temp = temp_raw;
-    spl06->raw_temp_valid = true;
-    return temp_raw;
-}
-
-uint32_t spl06_read_raw_pressure(spl06_t *spl06) {
-    uint8_t buf[3] = {0};
-    i2c_read(PSR_B2, &buf[0], 1);
-    i2c_read(PSR_B1, &buf[1], 1);
-    i2c_read(PSR_B0, &buf[2], 1);
-
-    int32_t pressure_raw = buf[0] << 16 | buf[1] << 8 | buf[2];
-    if (pressure_raw & 0x800000) {
-        pressure_raw = 0xFF000000 | pressure_raw;
-    }
-
-    spl06->raw_pressure = pressure_raw;
-    return pressure_raw;
-}
-
-float spl06_get_temperature(spl06_t *spl06) {
-    float fTsc = (float) spl06->raw_temp / scale_factor(spl06->oversampling_t);
-    float temp = (float) c0 * 0.5f + (float) c1 * fTsc;
-    return temp;
-}
-
-float spl06_get_pressure(spl06_t *spl06) {
-    float fPsc = (float) spl06->raw_pressure / scale_factor(spl06->oversampling_p);
-    float fTsc = (float) spl06->raw_temp / scale_factor(spl06->oversampling_t);
-
-    float qua2 = (float) c10 + fPsc * ((float) c20 + fPsc * (float) c30);
-    float qua3 = fTsc * fPsc * ((float) c11 + fPsc * (float) c21);
-
-    float pressure = (float) c00 + fPsc * qua2 + fTsc * (float) c01 + qua3;
-    return pressure;
 }

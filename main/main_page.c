@@ -203,8 +203,10 @@ static void guiTask(void *pvParameter) {
     epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
 
     epd_paint_clear(epd_paint, 1);
-    panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-    panel_ssd1680_refresh(&panel, false);
+    panel_ssd1680_clear_display(&panel, 0xff);
+
+    //panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+    //panel_ssd1680_refresh(&panel, false);
 
     panel_ssd1680_init_partial(&panel);
 
@@ -214,9 +216,7 @@ static void guiTask(void *pvParameter) {
         if (loop_cnt % 100 == 0) {
             // request full fresh
             panel_ssd1680_init_full(&panel);
-            epd_paint_clear(epd_paint, 1);
-            panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-            panel_ssd1680_refresh(&panel, false);
+            panel_ssd1680_clear_display(&panel, 0xff);
 
             panel_ssd1680_init_partial(&panel);
             loop_cnt = 0;
@@ -224,7 +224,7 @@ static void guiTask(void *pvParameter) {
 
         draw_main_page(&panel, epd_paint, loop_cnt);
 
-        vTaskDelay(pdMS_TO_TICKS(2000));
+        vTaskDelay(pdMS_TO_TICKS(3000));
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
             // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
@@ -503,7 +503,7 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     y += 18;
     // heart and crank
     epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
-    epd_paint_draw_vertical_line(epd_paint, LCD_H_RES / 2, y, LCD_V_RES - y, 0);
+    epd_paint_draw_vertical_line(epd_paint, LCD_H_RES / 2, y, LCD_V_RES - y - 1, 0);
 
     y += 4;
     epd_paint_draw_string_at(epd_paint, 4, y, "174", &Font32_2, 0);

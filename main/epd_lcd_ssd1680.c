@@ -272,7 +272,7 @@ set_mem_area(lcd_ssd1680_panel_t *ssd1680, uint16_t start_x, uint16_t start_y, u
             (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
 
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_START_END,
-            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, (end_y - 1) & 0xff, ((end_y - 1) >> 8) & 0xff},
+            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, end_y & 0xff, (end_y >> 8) & 0xff},
             4);
 
     return ESP_OK;
@@ -289,6 +289,7 @@ esp_err_t update_full(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xC7}, 1);
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
     wait_for_busy(ssd1680);
+    ESP_LOGI(TAG, "ssd1680 full refresh success..");
     return ESP_OK;
 }
 
@@ -297,6 +298,7 @@ esp_err_t update_part(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xCF}, 1);
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
     wait_for_busy(ssd1680);
+    ESP_LOGI(TAG, "ssd1680 part refresh success..");
     return ESP_OK;
 }
 
@@ -351,6 +353,11 @@ esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
 
     lcd_cmd(panel, SSD1680_CMD_TEMPERATURE_SENSOR_CONTROL, (uint8_t[]) {0x80}, 1);
 
+//    //Load Temperature and waveform setting.
+//    lcd_cmd(panel, 0x22, (uint8_t[]) {0XB1}, 1);
+//    lcd_cmd(panel, 0x20, NULL, 1);
+//    wait_for_busy(panel);
+
 //    //  Display update control
 //    lcd_cmd(panel, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_1, (uint8_t[]) {0x00, 0x80}, 2);
 
@@ -364,10 +371,6 @@ esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
 esp_err_t panel_ssd1680_init_full(lcd_ssd1680_panel_t *panel) {
     pre_init(panel);
     panel->_using_partial_mode = false;
-
-//    lcd_cmd(panel, 0x22, (uint8_t[]) {0XB1}, 1); // //Load Temperature and waveform setting.
-//    lcd_cmd(panel, 0x20, NULL, 1); // //Load Temperature and waveform setting.
-//    wait_for_busy(panel);
 
     set_lut_by_host(panel, WF_Full_1IN54, 153);
     lcd_cmd(panel, 0x3f, &WF_Full_1IN54[153], 1);

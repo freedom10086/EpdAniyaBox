@@ -55,7 +55,7 @@ typedef struct {
     uint8_t fifo_len;
 } spl06_t;
 
-void spl06_init(spl06_t *spl06);
+spl06_t* spl06_init();
 void spl06_fifo_state(spl06_t *spl06);
 void spl06_meassure_state(spl06_t *spl06);
 void spl06_reset(spl06_t *spl06);
