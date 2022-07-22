@@ -31,7 +31,6 @@
 
 #endif
 
-#include "status_bar.h"
 #include "main_page.h"
 #include "nmea_parser.h"
 #include "ble_device.h"
@@ -91,8 +90,6 @@ void app_main() {
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
 
     /* unregister event handler */
     // nmea_parser_remove_handler(nmea_hdl, gps_event_handler);

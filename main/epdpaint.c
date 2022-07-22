@@ -215,7 +215,7 @@ void epd_paint_draw_rectangle(epd_paint_t *epd_paint, int x0, int y0, int x1, in
 /**
 *  @brief: epd_paint draws a filled rectangle
 */
-void epd_paint__draw_filled_rectangle(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored) {
+void epd_paint_draw_filled_rectangle(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored) {
     int min_x, min_y, max_x, max_y;
     int i;
     min_x = x1 > x0 ? x0 : x1;

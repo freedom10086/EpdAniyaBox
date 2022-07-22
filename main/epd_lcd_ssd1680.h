@@ -11,8 +11,8 @@
 extern "C" {
 #endif
 
-#define LCD_H_RES 152
-#define LCD_V_RES 296
+#define LCD_H_RES 200
+#define LCD_V_RES 200
 
 typedef struct {
     spi_device_handle_t spi_dev;
@@ -43,6 +43,8 @@ esp_err_t panel_ssd1680_init_full(lcd_ssd1680_panel_t *panel);
 esp_err_t panel_ssd1680_init_partial(lcd_ssd1680_panel_t *panel);
 
 esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel);
+
+esp_err_t panel_ssd1680_clear_display(lcd_ssd1680_panel_t *panel, uint8_t color);
 
 esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
                                            const void *color_data) ;

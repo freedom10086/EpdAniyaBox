@@ -57,7 +57,7 @@ typedef struct {
   uint8_t start;
 } sFONT;
 
-extern sFONT Font64_DIGI;
+extern sFONT Font36;
 extern sFONT Font32_2;
 extern sFONT Font32;
 extern sFONT Font24;

@@ -26,7 +26,9 @@
 #include "lvgl.h"
 
 #else
+
 #include "lvgl/lvgl.h"
+
 #endif
 
 #include "epd_lcd_ssd1680.h"
@@ -56,10 +58,13 @@
 static void lv_tick_task(void *arg);
 
 static void guiTask(void *pvParameter);
+
 static void guiTask_EPD_LVGL(void *pvParameter);
+
 static void guiTask_LVGL(void *pvParameter);
 
-static void draw_test_1(lcd_ssd1680_panel_t *panel);
+static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, uint32_t loop_cnt);
+
 static void draw_test_2(lv_obj_t *scr);
 
 void init_main_page() {
@@ -138,7 +143,7 @@ static void lvgl_flush_epd_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_colo
     lv_disp_flush_ready(drv);
 }
 
-static void lvgl_set_px_epd_cb(lv_disp_drv_t* disp_drv, uint8_t * buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
+static void lvgl_set_px_epd_cb(lv_disp_drv_t *disp_drv, uint8_t *buf, lv_coord_t buf_w, lv_coord_t x, lv_coord_t y,
                                lv_color_t color, lv_opa_t opa) {
     if (color.full) {
         buf[(x + y * buf_w) / 8] |= 0x80 >> (x % 8);
@@ -184,18 +189,53 @@ static void guiTask(void *pvParameter) {
     // Attach the LCD to the SPI bus
     ESP_ERROR_CHECK(new_panel_ssd1680(&panel, TFT_SPI_HOST, &io_config));
 
-    draw_test_1(&panel);
+    ESP_LOGI(TAG, "Reset SSD1680 panel driver");
+    panel_ssd1680_reset(&panel);
+    panel_ssd1680_init_full(&panel);
+    // panel_ssd1680_init_partial(&panel);
 
+    //panel_ssd1680_clear_display(panel, 0xff);
+
+    // for test
+    epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
+    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
+
+    epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
+
+    epd_paint_clear(epd_paint, 1);
+    panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+    panel_ssd1680_refresh(&panel, false);
+
+    panel_ssd1680_init_partial(&panel);
+
+    uint32_t loop_cnt = 0;
     while (1) {
-        // raise the task priority of LVGL and/or reduce the handler period can improve the performance
-        vTaskDelay(pdMS_TO_TICKS(10));
+        loop_cnt += 1;
+        if (loop_cnt % 100 == 0) {
+            // request full fresh
+            panel_ssd1680_init_full(&panel);
+            epd_paint_clear(epd_paint, 1);
+            panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+            panel_ssd1680_refresh(&panel, false);
 
+            panel_ssd1680_init_partial(&panel);
+            loop_cnt = 0;
+        }
+
+        draw_main_page(&panel, epd_paint, loop_cnt);
+
+        vTaskDelay(pdMS_TO_TICKS(2000));
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
             // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
             xSemaphoreGive(xGuiSemaphore);
         }
     }
+
+    panel_ssd1680_sleep(&panel);
+    epd_paint_deinit(epd_paint);
+    free(image);
+    free(epd_paint);
 
     vTaskDelete(NULL);
 }
@@ -424,62 +464,87 @@ static void guiTask_LVGL(void *pvParameter) {
     vTaskDelete(NULL);
 }
 
-static void draw_test_1(lcd_ssd1680_panel_t *panel) {
-    ESP_LOGI(TAG, "Reset SSD1680 panel driver");
-    panel_ssd1680_reset(panel);
-    panel_ssd1680_init_full(panel);
-    // panel_ssd1680_init_partial(&panel);
-
-    // for test
-    epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
-    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
-
-    epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
-
+static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 1);
+
+    int y = 0;
+    // status bar
+    // time
+
+    if (loop_cnt % 2 == 0) {
+        epd_paint_draw_string_at(epd_paint, (LCD_H_RES - Font16.Width * 5) / 2, y, "22:54", &Font16, 0);
+    } else {
+        epd_paint_draw_string_at(epd_paint, (LCD_H_RES - Font16.Width * 5) / 2, y, "22 54", &Font16, 0);
+    }
+
+    // gps
+    epd_paint_draw_string_at(epd_paint, 0, y - 2, "G:12", &Font16_2, 0);
+
+    // temp
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * 6, y - 2, "T:18.5", &Font16_2, 0);
+    epd_paint_draw_horizontal_line(epd_paint, 0, y + 16, LCD_H_RES, 0);
+
+    y += 22;
+    // speed
+    epd_paint_draw_filled_rectangle(epd_paint, LCD_H_RES / 2 - 2, y + Font36.Height - 5, LCD_H_RES / 2 + 2,
+                                    y + Font36.Height - 1, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - 6 - Font36.Width * 2, y, "12", &Font36, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 6, y, "34", &Font36, 0);
+
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 12, "k", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 12, "m", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 12, "/", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 3 * Font8.Height + 12, "h", &Font8, 0);
+
+    y += 40;
+    epd_paint_draw_string_at(epd_paint, 16, y, "avg:28.1", &Font16_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 16, y, "max:28.1", &Font16_2, 0);
+
+    y += 18;
+    // heart and crank
+    epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
+    epd_paint_draw_vertical_line(epd_paint, LCD_H_RES / 2, y, LCD_V_RES - y, 0);
+
+    y += 4;
+    epd_paint_draw_string_at(epd_paint, 4, y, "174", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "b", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
+
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "76", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "r", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
+
+    y += 36;
+    epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
+
+    // time and distance
+    y += 4;
+    epd_paint_draw_string_at(epd_paint, 4, y, "1:27", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "m", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "i", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "n", &Font8, 0);
+
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "18.6", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "k", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
+
+    y += 36;
+    epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
+    y += 4;
+
+    // degre and height
+    epd_paint_draw_string_at(epd_paint, 4, y, "287.4", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 8, "m", &Font8, 0);
+
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "3.2", &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "d", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "e", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "g", &Font8, 0);
+
     panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-    panel_ssd1680_refresh(panel, false);
-
-//    // partial update
-//    panel_ssd1680_init_partial(panel);
-//    epd_paint_draw_string_at(epd_paint, 48, 0, "22:54", &Font16, 0);
-//
-//    epd_paint_draw_string_at(epd_paint, 0, 16, "12.", &Font64_DIGI, 0);
-//    epd_paint_draw_string_at(epd_paint, 72, 16, "34", &Font64_DIGI, 0);
-//
-//    epd_paint_draw_horizontal_line(epd_paint, 0, 16, LCD_H_RES, 0);
-//    epd_paint_draw_horizontal_line(epd_paint, 0, 80, LCD_H_RES, 0);
-//
-//    // heart and crank
-//    epd_paint_draw_string_at(epd_paint, 10, 76, "174", &Font32_2, 0);
-//    epd_paint_draw_string_at(epd_paint, 96, 76, "76", &Font32_2, 0);
-//
-//    epd_paint_draw_string_at(epd_paint, 48, 106, "bpm", &Font12, 0);
-//    epd_paint_draw_string_at(epd_paint, 124, 106, "rpm", &Font12, 0);
-//
-//    epd_paint_draw_horizontal_line(epd_paint, 0, 118, LCD_H_RES, 0);
-//    epd_paint_draw_vertical_line(epd_paint, 76, 80, 38, 0);
-//
-//    // time and distance
-//    epd_paint_draw_string_at(epd_paint, 10, 122, "1:20", &Font24, 0);
-//    epd_paint_draw_string_at(epd_paint, 96, 118, "76.5", &Font20_2, 0);
-//    epd_paint_draw_string_at(epd_paint, 126, 138, "km", &Font12, 0);
-//    epd_paint_draw_horizontal_line(epd_paint, 0, 150, LCD_H_RES, 0);
-//
-//    epd_paint_draw_string_at(epd_paint, 0, 166, "20abcdefghijk12345ABGJK", &Font20, 0);
-//    epd_paint_draw_string_at(epd_paint, 0, 186, "20-2abcdefghijk12345ABG22", &Font20_2, 0);
-//    epd_paint_draw_string_at(epd_paint, 0, 196, "24AaBb1246()-_=+~`", &Font24, 0);
-//    epd_paint_draw_string_at(epd_paint, 0, 204, "16-3AbBbCcDd123416_2", &Font16_2, 0);
-//    epd_paint_draw_string_at(epd_paint, 0, 228, "32AaBb1234", &Font32, 0);
-//    epd_paint_draw_string_at(epd_paint, 0, 276, ",.<>/?;]$", &Font24, 0);
-
-//    panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-//    panel_ssd1680_refresh(panel, true);
-
-    panel_ssd1680_sleep(panel);
-    epd_paint_deinit(epd_paint);
-    free(image);
-    free(epd_paint);
+    panel_ssd1680_refresh(panel, true);
 }
 
 static void draw_test_2(lv_obj_t *scr) {
@@ -517,34 +582,6 @@ static void draw_test_2(lv_obj_t *scr) {
     lv_label_set_text(label6, "ABCDEFGabcdefgHIJ");
     lv_obj_set_style_text_font(label6, &lv_font_montserrat_14, LV_STATE_DEFAULT);
     lv_obj_align_to(label6, label5, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
-}
-
-void draw_test_partial(lcd_ssd1680_panel_t *panel) {
-
-    // for test
-    epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
-    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
-    epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
-
-    for (uint8_t i = 0; i < 26; ++i) {
-        epd_paint_clear(epd_paint, 1);
-        char now = 'a' + i;
-        epd_paint_draw_char_at(epd_paint, 5, 35, now, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 56, now + 1, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 77, now + 2, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 98, now + 3, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 119, now + 4, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 140, now + 5, &Font20, 0);
-
-        panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, image);
-        panel_ssd1680_refresh_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
-
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    epd_paint_deinit(epd_paint);
-    free(image);
-    free(epd_paint);
 }
 
 static void lv_tick_task(void *arg) {
