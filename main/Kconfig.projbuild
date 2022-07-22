@@ -4,13 +4,15 @@ menu "My Project Config"
         comment "config spi display stuff."
 
         choice
-            default SPI_DISPLAY_SSD1680
+            default SPI_DISPLAY_SSD1680_2IN66
             prompt "LCD Display Type: "
             help
                   Select the display driver type.
 
-            config SPI_DISPLAY_SSD1680
-                bool "SPI_DISPLAY_SSD1680"
+            config SPI_DISPLAY_SSD1680_2IN66
+                bool "SPI_DISPLAY_SSD1680_2IN66"
+            config SPI_DISPLAY_SSD1680_1IN54
+                bool "SPI_DISPLAY_SSD1680_1IN54"
             config SPI_DISPLAY_ST7789
                 bool "SPI_DISPLAY_ST7789"
         endchoice
@@ -63,7 +65,7 @@ menu "My Project Config"
                 Configure the display backlight pin here.
 
         config DISP_PIN_BUSY
-            depends on SPI_DISPLAY_SSD1680
+            depends on SPI_DISPLAY_SSD1680_2IN66 || SPI_DISPLAY_SSD1680_1IN54
             int "GPIO for Busy"
             default 2
 

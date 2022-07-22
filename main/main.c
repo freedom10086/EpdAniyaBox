@@ -36,6 +36,7 @@
 #include "nmea_parser.h"
 #include "ble_device.h"
 #include "sd_card.h"
+#include "kalman_filter.h"
 #include "ms5611.h"
 #include "spl06.h"
 
@@ -83,7 +84,7 @@ gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t 
  *   APPLICATION MAIN
  **********************/
 void app_main() {
-
+    // esp_log_level_set("*", ESP_LOG_WARN);
     /* NMEA parser configuration */
     nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     /* init NMEA parser library */
@@ -101,7 +102,7 @@ void app_main() {
     /**
      * main page
      */
-    // init_main_page();
+    init_main_page();
 
     /**
      * status bar
@@ -152,5 +153,52 @@ void app_main() {
 
     */
 
-    spl06_init();
+    /*
+    spl06_t spl06;
+    spl06_init(&spl06);
+
+    bool en_fifo = false;
+    spl06_start(&spl06, en_fifo);
+
+    while (1) {
+        spl06_meassure_state(&spl06);
+        spl06_fifo_state(&spl06);
+        vTaskDelay(pdMS_TO_TICKS(30));
+
+        if (spl06.en_fifo) {
+            // read from fifo
+            if (spl06.fifo_full) {
+                spl06_read_raw_fifo(&spl06);
+                ESP_LOGI(TAG, "spl06 read fifo %d", spl06.fifo_len);
+                for (uint8_t i = 0; i < spl06.fifo_len; i++) {
+                    bool is_pressure = spl06.fifo[i] & 0x01;
+                    int32_t item = spl06.fifo[i]; // >> 1;
+                    if (is_pressure) {
+                        spl06.raw_pressure = item;
+                        ESP_LOGI(TAG, "spl06 fifo pressure data %d %f, ", i, spl06_get_pressure(&spl06));
+                    } else {
+                        spl06.raw_temp = item;
+                        ESP_LOGI(TAG, "spl06 fifo temp data %d %f, ", i, spl06_get_temperature(&spl06));
+                    }
+                }
+            }
+        } else {
+            if (spl06.pressure_ready && spl06.raw_temp_valid) {
+                spl06_read_raw_pressure(&spl06);
+                float pressure = spl06_get_pressure(&spl06);
+                //float kal_pressure = kalman1_filter(&state1, pressure);
+                ESP_LOGI(TAG, "spl06 raw_pressure %d,  pressure: %f altitude:%f altitudeV2:%f",
+                         spl06.raw_pressure, pressure, calc_altitude(pressure), calc_altitude_v2(pressure));
+                //printf("pressure:%f,raw_pressure:%d,kal_kal_pressure:%f\n", pressure, spl06.raw_pressure, kal_pressure);
+            }
+
+            if (spl06.temp_ready) {
+                spl06_read_raw_temp(&spl06);
+                float temp = spl06_get_temperature(&spl06);
+                ESP_LOGI(TAG, "spl06 raw_temp %d,  temp: %f", spl06.raw_temp, temp);
+                //printf("temp:%f\n", temp);
+            }
+        }
+    }
+     */
 }

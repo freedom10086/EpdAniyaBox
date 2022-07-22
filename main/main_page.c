@@ -29,7 +29,7 @@
 #include "lvgl/lvgl.h"
 #endif
 
-#include "esp_lcd_panel_ssd1680.h"
+#include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 
 
@@ -66,7 +66,7 @@ void init_main_page() {
     /* If you want to use a task to create the graphic, you NEED to create a Pinned task
      * Otherwise there can be problem such as memory corruption and so on.
      * NOTE: When not using Wi-Fi nor Bluetooth you can pin the guiTask to core 0 */
-    xTaskCreatePinnedToCore(guiTask_EPD_LVGL, "gui", 4096 * 2, NULL, 0, NULL, 1);
+    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
 }
 
 /* Creates a semaphore to handle concurrent call to lvgl stuff
@@ -132,6 +132,9 @@ static void lvgl_flush_epd_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_colo
     lcd_ssd1680_panel_t *panel = drv->user_data;
     // copy a buffer's content to a specific area of the display
     panel_ssd1680_draw_bitmap(panel, area->x1, area->y1, area->x2 + 1, area->y2 + 1, color_map);
+    if (lv_disp_flush_is_last(drv)) {
+        panel_ssd1680_refresh(panel, panel->_using_partial_mode);
+    }
     lv_disp_flush_ready(drv);
 }
 
@@ -180,13 +183,6 @@ static void guiTask(void *pvParameter) {
 
     // Attach the LCD to the SPI bus
     ESP_ERROR_CHECK(new_panel_ssd1680(&panel, TFT_SPI_HOST, &io_config));
-
-    ESP_LOGI(TAG, "Reset SSD1680 panel driver");
-    panel_ssd1680_reset(&panel);
-
-    ESP_LOGI(TAG, "Init SSD1680 panel");
-    panel_ssd1680_init(&panel);
-    // panel_ssd1680_init_partial(&panel);
 
     draw_test_1(&panel);
 
@@ -238,7 +234,7 @@ static void guiTask_EPD_LVGL(void *pvParameter) {
     panel_ssd1680_reset(&panel);
 
     ESP_LOGI(TAG, "Init SSD1680 panel");
-    panel_ssd1680_init(&panel);
+    panel_ssd1680_init_full(&panel);
     // panel_ssd1680_init_partial(&panel);
 
     ESP_LOGI(TAG, "Initialize LVGL library");
@@ -340,7 +336,7 @@ static void guiTask_LVGL(void *pvParameter) {
     esp_lcd_panel_dev_config_t panel_config = {
             .flags.reset_active_high = 0,
             .reset_gpio_num = DISP_PIN_RST,
-#ifdef CONFIG_SPI_DISPLAY_SSD1680
+#if defined CONFIG_SPI_DISPLAY_SSD1680_2IN66 || defined CONFIG_SPI_DISPLAY_SSD1680_1IN54
             .color_space = ESP_LCD_COLOR_SPACE_MONOCHROME,
             .bits_per_pixel = 1,
 #else
@@ -429,6 +425,11 @@ static void guiTask_LVGL(void *pvParameter) {
 }
 
 static void draw_test_1(lcd_ssd1680_panel_t *panel) {
+    ESP_LOGI(TAG, "Reset SSD1680 panel driver");
+    panel_ssd1680_reset(panel);
+    panel_ssd1680_init_full(panel);
+    // panel_ssd1680_init_partial(&panel);
+
     // for test
     epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
     uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
@@ -437,25 +438,45 @@ static void draw_test_1(lcd_ssd1680_panel_t *panel) {
 
     epd_paint_clear(epd_paint, 1);
     panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+    panel_ssd1680_refresh(panel, false);
 
-    epd_paint_draw_string_at(epd_paint, 0, 0, "abcdefghijk", &Font20, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 21, "lmopqrstuv", &Font12, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 35, "hello world! 0123456789", &Font8, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 45, "hello world! 0123456789", &Font12, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 60, "hello world!", &Font16, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 78, "hello!012345", &Font20, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 100, "hello!", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 125, "01234ABCD", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 150, "56789EFGH", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 175, "IJKLMOPQR", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 200, "STUVWXYZ", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 225, "!@$%^&*", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 250, "()-_=+~`", &Font24, 0);
-    epd_paint_draw_string_at(epd_paint, 0, 275, ",.<>/?;]", &Font24, 0);
-    panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+//    // partial update
+//    panel_ssd1680_init_partial(panel);
+//    epd_paint_draw_string_at(epd_paint, 48, 0, "22:54", &Font16, 0);
+//
+//    epd_paint_draw_string_at(epd_paint, 0, 16, "12.", &Font64_DIGI, 0);
+//    epd_paint_draw_string_at(epd_paint, 72, 16, "34", &Font64_DIGI, 0);
+//
+//    epd_paint_draw_horizontal_line(epd_paint, 0, 16, LCD_H_RES, 0);
+//    epd_paint_draw_horizontal_line(epd_paint, 0, 80, LCD_H_RES, 0);
+//
+//    // heart and crank
+//    epd_paint_draw_string_at(epd_paint, 10, 76, "174", &Font32_2, 0);
+//    epd_paint_draw_string_at(epd_paint, 96, 76, "76", &Font32_2, 0);
+//
+//    epd_paint_draw_string_at(epd_paint, 48, 106, "bpm", &Font12, 0);
+//    epd_paint_draw_string_at(epd_paint, 124, 106, "rpm", &Font12, 0);
+//
+//    epd_paint_draw_horizontal_line(epd_paint, 0, 118, LCD_H_RES, 0);
+//    epd_paint_draw_vertical_line(epd_paint, 76, 80, 38, 0);
+//
+//    // time and distance
+//    epd_paint_draw_string_at(epd_paint, 10, 122, "1:20", &Font24, 0);
+//    epd_paint_draw_string_at(epd_paint, 96, 118, "76.5", &Font20_2, 0);
+//    epd_paint_draw_string_at(epd_paint, 126, 138, "km", &Font12, 0);
+//    epd_paint_draw_horizontal_line(epd_paint, 0, 150, LCD_H_RES, 0);
+//
+//    epd_paint_draw_string_at(epd_paint, 0, 166, "20abcdefghijk12345ABGJK", &Font20, 0);
+//    epd_paint_draw_string_at(epd_paint, 0, 186, "20-2abcdefghijk12345ABG22", &Font20_2, 0);
+//    epd_paint_draw_string_at(epd_paint, 0, 196, "24AaBb1246()-_=+~`", &Font24, 0);
+//    epd_paint_draw_string_at(epd_paint, 0, 204, "16-3AbBbCcDd123416_2", &Font16_2, 0);
+//    epd_paint_draw_string_at(epd_paint, 0, 228, "32AaBb1234", &Font32, 0);
+//    epd_paint_draw_string_at(epd_paint, 0, 276, ",.<>/?;]$", &Font24, 0);
+
+//    panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
+//    panel_ssd1680_refresh(panel, true);
 
     panel_ssd1680_sleep(panel);
-
     epd_paint_deinit(epd_paint);
     free(image);
     free(epd_paint);
@@ -496,6 +517,34 @@ static void draw_test_2(lv_obj_t *scr) {
     lv_label_set_text(label6, "ABCDEFGabcdefgHIJ");
     lv_obj_set_style_text_font(label6, &lv_font_montserrat_14, LV_STATE_DEFAULT);
     lv_obj_align_to(label6, label5, LV_ALIGN_OUT_BOTTOM_MID, 0, 0);
+}
+
+void draw_test_partial(lcd_ssd1680_panel_t *panel) {
+
+    // for test
+    epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
+    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
+    epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
+
+    for (uint8_t i = 0; i < 26; ++i) {
+        epd_paint_clear(epd_paint, 1);
+        char now = 'a' + i;
+        epd_paint_draw_char_at(epd_paint, 5, 35, now, &Font20, 0);
+        epd_paint_draw_char_at(epd_paint, 5, 56, now + 1, &Font20, 0);
+        epd_paint_draw_char_at(epd_paint, 5, 77, now + 2, &Font20, 0);
+        epd_paint_draw_char_at(epd_paint, 5, 98, now + 3, &Font20, 0);
+        epd_paint_draw_char_at(epd_paint, 5, 119, now + 4, &Font20, 0);
+        epd_paint_draw_char_at(epd_paint, 5, 140, now + 5, &Font20, 0);
+
+        panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, image);
+        panel_ssd1680_refresh_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
+
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
+    epd_paint_deinit(epd_paint);
+    free(image);
+    free(epd_paint);
 }
 
 static void lv_tick_task(void *arg) {

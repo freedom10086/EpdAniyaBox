@@ -19,6 +19,8 @@ typedef struct {
     int busy_gpio_num;
     int reset_gpio_num; /*!< GPIO used to reset the LCD panel, set to -1 if it's not used */
     bool reset_level;
+    bool _using_partial_mode;
+    bool _initial_refresh; // is first refresh
 } lcd_ssd1680_panel_t;
 
 /**
@@ -36,7 +38,7 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
                             spi_host_device_t bus,
                             const esp_lcd_panel_io_spi_config_t *io_config);
 
-esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel);
+esp_err_t panel_ssd1680_init_full(lcd_ssd1680_panel_t *panel);
 
 esp_err_t panel_ssd1680_init_partial(lcd_ssd1680_panel_t *panel);
 
@@ -44,6 +46,10 @@ esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel);
 
 esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
                                            const void *color_data) ;
+
+esp_err_t panel_ssd1680_refresh(lcd_ssd1680_panel_t *panel, bool partial_update_mode);
+
+esp_err_t panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, uint16_t end_x, uint16_t end_y);
 
 esp_err_t panel_ssd1680_sleep(lcd_ssd1680_panel_t *panel);
 

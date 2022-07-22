@@ -29,8 +29,6 @@
 #define PROM_Read_6 0xAC
 #define PROM_Read_7 0xAE
 
-#define Sea_Level_Pressure 101325.0
-
 #define I2C_MASTER_NUM 0
 #define I2C_MASTER_FREQ_HZ 20000
 
@@ -158,7 +156,7 @@ void ms5611_read_temp() {
     ESP_LOGI(TAG, "ms5611 read temp, raw:%x", D[1]);
 }
 
-float ms5611_pressure_caculate() {
+float ms5611_get_pressure() {
     int64_t OFF = 0, OFF2 = 0, SENS = 0, SENS2 = 0, T2 = 0;
     int64_t dT = 0;
     dT = D[1] - (((int64_t) C[4]) << 8);
@@ -181,7 +179,5 @@ float ms5611_pressure_caculate() {
     Temp -= T2;
     SENS -= SENS2;
     P = (((D[0] * SENS) >> 21) - OFF) >> 15;
-    Height = 44330 * (1 - pow(P / Sea_Level_Pressure, 1 / 5.225));
-
-    return Height;
+    return P;
 }

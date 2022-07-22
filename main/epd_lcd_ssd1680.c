@@ -22,7 +22,7 @@
 #include "esp_check.h"
 
 #include "epdpaint.h"
-#include "esp_lcd_panel_ssd1680.h"
+#include "epd_lcd_ssd1680.h"
 
 static const char *TAG = "lcd_panel.ssd1680";
 
@@ -43,7 +43,8 @@ static uint8_t WF_PARTIAL[159] =
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00, 0x00, 0x00, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22,
-                0x00, 0x00, 0x00, 0x22, 0x17, 0x41, 0xB0, 0x32, 0x36,
+                0x00, 0x00, 0x00,
+                0x22, 0x17, 0x41, 0xB0, 0x32, 0x36,
         };
 
 // ssd1680 commands
@@ -130,6 +131,7 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
         ESP_GOTO_ON_ERROR(gpio_config(&io_conf), err, TAG, "configure GPIO for D/C line failed");
     }
 
+    panel->_initial_refresh = true;
     return ESP_OK;
 
     err:
@@ -146,7 +148,7 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
 }
 
 static esp_err_t lcd_data(lcd_ssd1680_panel_t *panel, const uint8_t *data, size_t len) {
-    ESP_LOGI(TAG, "lcd data 0x%02x len:%d", *data, len);
+    // ESP_LOGI(TAG, "lcd data 0x%02x len:%d", *data, len);
     esp_err_t ret;
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
@@ -211,7 +213,6 @@ esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel) {
     }
 
     ESP_LOGI(TAG, "lcd panel hw reset OK.");
-
     return ESP_OK;
 }
 
@@ -224,7 +225,6 @@ esp_err_t panel_ssd1680_sw_reset(lcd_ssd1680_panel_t *panel) {
     //wait_for_busy(ssd1680);
 
     ESP_LOGI(TAG, "lcd panel sw reset OK.");
-
     return ESP_OK;
 }
 
@@ -234,59 +234,39 @@ esp_err_t panel_ssd1680_sw_reset(lcd_ssd1680_panel_t *panel) {
 static esp_err_t
 set_mem_area(lcd_ssd1680_panel_t *ssd1680, uint16_t start_x, uint16_t start_y, uint16_t end_x, uint16_t end_y) {
     /* x point must be the multiple of 8 or the last 3 bits will be ignored */
-    // x从1开始 有的是从0开始【微雪】从1中景园从0
-
     // 1680是左闭右闭
     end_x -= 1;
     end_y -= 1;
 
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_START_END,
-            (uint8_t[]) {((start_x >> 3) & 0xff) + 1, ((end_x >> 3) & 0xff) + 1}, 2);
+            (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
 
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_START_END,
-            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, (end_y - 1) & 0xff, (end_y >> 8) & 0xff},
+            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, (end_y - 1) & 0xff, ((end_y - 1) >> 8) & 0xff},
             4);
 
     return ESP_OK;
 }
 
 static esp_err_t set_mem_pointer(lcd_ssd1680_panel_t *ssd1680, uint16_t x, uint16_t y) {
-    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER, (uint8_t[]) {((x >> 3) & 0xff) + 1}, 1);
+    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER, (uint8_t[]) {(x >> 3) & 0xff}, 1);
     lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER,
             (uint8_t[]) {y & 0xff, (y >> 8) & 0xff}, 2);
-    wait_for_busy(ssd1680);
     return ESP_OK;
 }
 
-static esp_err_t display_frame(lcd_ssd1680_panel_t *ssd1680) {
-    lcd_cmd(ssd1680, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xF7}, 1);
+esp_err_t update_full(lcd_ssd1680_panel_t *ssd1680) {
+    // f7
+    lcd_cmd(ssd1680, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xF4}, 1);
     // update
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
     wait_for_busy(ssd1680);
     return ESP_OK;
 }
 
-static esp_err_t display_frame_partial(lcd_ssd1680_panel_t *ssd1680, uint8_t *data, size_t x_start, size_t y_start, size_t width,
-                      size_t height) {
-    // width = width >> 3;
-    size_t data_len = height * width / 8;
-
-     set_mem_area(ssd1680, x_start, y_start, x_start + width, y_start + height);
-     set_mem_pointer(ssd1680, 0, 0);
-
-    size_t m_width = (width % 8 == 0) ? (width / 8) : (width / 8 + 1);
-
-    lcd_cmd(ssd1680, SSD1680_CMD_WRITE_RAM, data, data_len);
-//    for (size_t j = 0; j < height; j++) {
-//        for (size_t i = 0; i < m_width; i++) {
-//            if (j >= y_start && j < y_start + height && i >= x_start / 8 && i < (x_start + width) / 8) {
-//                lcd_data(ssd1680, &data[(i - x_start / 8) + (j - y_start) * width / 8], 1);
-//            } else {
-//                lcd_data(ssd1680, (uint8_t[]) {0xff}, 1);
-//            }
-//        }
-//    }
-
+esp_err_t update_part(lcd_ssd1680_panel_t *ssd1680) {
+    // lcd_cmd(ssd1680, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xCC}, 1);
+    // update
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
     wait_for_busy(ssd1680);
     return ESP_OK;
@@ -304,7 +284,7 @@ static esp_err_t clear_display(lcd_ssd1680_panel_t *panel, uint8_t color) {
         }
     }
 
-    display_frame(panel);
+    panel_ssd1680_refresh(panel, true);
     return ESP_OK;
 }
 
@@ -313,32 +293,7 @@ static void set_lut_by_host(lcd_ssd1680_panel_t *ssd1680, uint8_t *lut, uint8_t 
     wait_for_busy(ssd1680);
 }
 
-void draw_test_partial(lcd_ssd1680_panel_t *panel) {
-
-    // for test
-    epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
-    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
-    epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
-
-    for (uint8_t i = 0; i < 26; ++i) {
-        epd_paint_clear(epd_paint, 1);
-        char now = 'a' + i;
-        epd_paint_draw_char_at(epd_paint, 5, 35, now, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 56, now + 1, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 77, now + 2, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 98, now + 3, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 119, now + 4, &Font20, 0);
-        epd_paint_draw_char_at(epd_paint, 5, 140, now + 5, &Font20, 0);
-        display_frame_partial(panel, image, 0, 0,   LCD_H_RES, LCD_V_RES);
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
-
-    epd_paint_deinit(epd_paint);
-    free(image);
-    free(epd_paint);
-}
-
-esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
+esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
 
     ESP_LOGI(TAG, "ssd1680 start for init ...");
     // HW Reset
@@ -354,7 +309,8 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
 
     // 3. Send Initialization Code
     // Set gate driver output by Command 0x01
-    //lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL,(uint8_t[]) {(LCD_V_RES - 1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
+    lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL,
+            (uint8_t[]) {(LCD_V_RES - 1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
     wait_for_busy(panel);
 
     //lcd_cmd(panel, SSD1680_CMD_BOOSTER_SOFT_START_CONTROL, (uint8_t[]) {0xD7, 0xD6, 0x9D}, 3);
@@ -367,22 +323,23 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
     // 00 –Y decrement, X decrement, //01 –Y decrement, X increment, //10 –Y increment, X decrement, //11 –Y increment, X increment [POR]
     lcd_cmd(panel, SSD1680_CMD_DATA_ENTRY_MODE_SETTING, (uint8_t[]) {0x03}, 1);
 
-    // set lut
-    // set_lut_by_host(panel, lut_full_update, 30);
-
-
-    set_mem_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
-
     // Set panel border by Command 0x3C
     // 边框 0x00 黑 0xc0 灰  0x80 无
-    // lcd_cmd(panel, SSD1680_CMD_BORDER_WAVEFORM_CONTROL, (uint8_t[]) {0x80}, 1);
+    lcd_cmd(panel, SSD1680_CMD_BORDER_WAVEFORM_CONTROL, (uint8_t[]) {0x05}, 1);
+
+    //  Display update control
+    lcd_cmd(panel, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_1, (uint8_t[]) {0x00, 0x80}, 2);
+
+    // set lut
+    // set_lut_by_host(panel, lut_full_update, 30);
 
     //4. Load Waveform LUT
     //• Sense temperature by int/ext TS by Command 0x18
     //• Load waveform LUT from OTP by Command 0x22, 0x20 or by MCU
-    // lcd_cmd(panel, SSD1680_CMD_TEMPERATURE_SENSOR_CONTROL, (uint8_t[]) {0x80}, 1);
+    lcd_cmd(panel, SSD1680_CMD_TEMPERATURE_SENSOR_CONTROL, (uint8_t[]) {0x80}, 1);
 
-    // lcd_cmd(panel, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_1, (uint8_t[]) {0x00, 0x80}, 2);
+    set_mem_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
+    set_mem_pointer(panel, 0, 0);
 
     //• Wait BUSY Low
     wait_for_busy(panel);
@@ -391,62 +348,24 @@ esp_err_t panel_ssd1680_init(lcd_ssd1680_panel_t *panel) {
     return ESP_OK;
 }
 
+esp_err_t panel_ssd1680_init_full(lcd_ssd1680_panel_t *panel) {
+    pre_init(panel);
+    panel->_using_partial_mode = false;
+    ESP_LOGI(TAG, "ssd1680 init full success!");
+    return ESP_OK;
+}
+
 esp_err_t panel_ssd1680_init_partial(lcd_ssd1680_panel_t *panel) {
-
-    ESP_LOGI(TAG, "ssd1680 start for init partial ...");
-    // HW Reset
-    // panel_ssd1680_reset(panel);
-
-    // SW Reset by Command 0x12
-    wait_for_busy(panel);
-    panel_ssd1680_sw_reset(panel);
-
-    // Wait 10ms busy is high when sw reset
-    vTaskDelay(pdMS_TO_TICKS(5));
-    wait_for_busy(panel);
-
+    pre_init(panel);
     set_lut_by_host(panel, WF_PARTIAL, 153);
-
     lcd_cmd(panel, 0x37, (uint8_t[]) {0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x00}, 10);
-
-    // 3. Send Initialization Code
-    // Set gate driver output by Command 0x01
-    //lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL, (uint8_t[]) {(LCD_V_RES - 1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
-    wait_for_busy(panel);
-
-    //lcd_cmd(panel, SSD1680_CMD_BOOSTER_SOFT_START_CONTROL, (uint8_t[]) {0xD7, 0xD6, 0x9D}, 3);
-    // lcd_cmd(panel, SSD1680_CMD_WRITE_VCOM_REGISTER, (uint8_t[]) {0xA8}, 1);
-    //lcd_cmd(panel, 0x3A, (uint8_t[]) {0x01}, 1);
-    //lcd_cmd(panel, 0x3B, (uint8_t[]) {0x08}, 1);
-
-
-    // Set display RAM size by Command 0x11, 0x44, 0x45
-    // 00 –Y decrement, X decrement, //01 –Y decrement, X increment, //10 –Y increment, X decrement, //11 –Y increment, X increment [POR]
-    lcd_cmd(panel, SSD1680_CMD_DATA_ENTRY_MODE_SETTING, (uint8_t[]) {0x03}, 1);
-
-    // set lut
-    // set_lut_by_host(panel, lut_full_update, 30);
-
-    set_mem_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
-
-    // Set panel border by Command 0x3C
-    // 边框 0x00 黑 0xc0 灰  0x80 无
-    lcd_cmd(panel, SSD1680_CMD_BORDER_WAVEFORM_CONTROL, (uint8_t[]) {0x80}, 1);
-
-    //4. Load Waveform LUT
-    //• Sense temperature by int/ext TS by Command 0x18
-    //• Load waveform LUT from OTP by Command 0x22, 0x20 or by MCU
-    // lcd_cmd(panel, SSD1680_CMD_TEMPERATURE_SENSOR_CONTROL, (uint8_t[]) {0x80}, 1);
 
     lcd_cmd(panel, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_2, (uint8_t[]) {0xCF}, 1);
     lcd_cmd(panel, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
-    //• Wait BUSY Low
     wait_for_busy(panel);
 
-    // for test
-    draw_test_partial(panel);
-
-    ESP_LOGI(TAG, "ssd1680 panel init partial ok !");
+    panel->_using_partial_mode = true;
+    ESP_LOGI(TAG, "ssd1680 init partial success!");
     return ESP_OK;
 }
 
@@ -458,43 +377,76 @@ esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int
 
     assert((x_start < x_end) && (y_start < y_end) && "start position must be smaller than end position");
 
-    if (x_end > LCD_H_RES) {
-        x_end = LCD_H_RES;
+    int w = x_end - x_start;
+    int h = y_end - y_start;
+
+    int wb = (w + 7) / 8; // width bytes, bitmaps are padded
+
+    x_start -= x_start % 8; // byte boundary
+    w = wb * 8; // byte boundary
+
+    int x1 = x_start < 0 ? 0 : x_start;
+    int y1 = y_start < 0 ? 0 : y_start;
+    int w1 = x_start + w < LCD_H_RES ? w : LCD_H_RES - x_start; // limit
+    int h1 = y_start + h < LCD_V_RES ? h : LCD_V_RES - y_start; // limit
+
+    int dx = x1 - x_start;
+    int dy = y1 - y_start;
+
+    w1 -= dx;
+    h1 -= dy;
+
+    if ((w1 <= 0) || (h1 <= 0)) return ESP_OK;
+
+    set_mem_area(panel, x1, y1, x1 + w, y1 + h);
+    set_mem_pointer(panel, x1, y1);
+
+    size_t len = h1 * w1 / 8;
+    if (len == LCD_H_RES * LCD_V_RES / 8) {
+        // transfer frame buffer
+        lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, color_data, len);
+    } else {
+        lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
+        for (int16_t i = 0; i < h1; i++) {
+            for (int16_t j = 0; j < w1 / 8; j++) {
+                uint8_t data;
+                // use wb, h of bitmap for index!
+                int16_t idx = j + dx / 8 + (i + dy) * wb;
+                data = ((uint8_t *) color_data)[idx];
+                lcd_data(panel, &data, 1);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 
-    if (y_end > LCD_V_RES) {
-        y_end = LCD_V_RES;
+    return ESP_OK;
+}
+
+esp_err_t panel_ssd1680_refresh(lcd_ssd1680_panel_t *panel, bool partial_update_mode) {
+    if (partial_update_mode) panel_ssd1680_refresh_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
+    else {
+        if (panel->_using_partial_mode) panel_ssd1680_init_full(panel);
+        update_full(panel);
+        panel->_initial_refresh = false;
     }
+    return ESP_OK;
+}
 
-    set_mem_area(panel, x_start, y_start, x_end, y_end);
-    set_mem_pointer(panel, x_start, y_start);
+esp_err_t
+panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, uint16_t end_x, uint16_t end_y) {
+    if (panel->_initial_refresh) return panel_ssd1680_refresh(panel, false); // initial update needs be full update
+    if (x < 0) x = 0;
+    if (end_x > LCD_H_RES) end_x = LCD_H_RES;
+    if (y < 0) y = 0;
+    if (end_y > LCD_V_RES) end_y = LCD_V_RES;
 
-//    v1
-//    lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
-//    /* send the image data */
-//    for (int j = y_start; j < LCD_V_RES; j++) {
-//        for (int i = x_start/8; i < LCD_H_RES / 8; i++) {
-//            int index = j * LCD_H_RES / 8 + i;
-//            lcd_data(panel, &color_data[index], 1);
-//        }
-//    }
-
-//    // v2
-//    lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
-//    /* send the image data */
-//    for (int j = 0; j < y_end - y_start; j++) {
-//        int index = j * LCD_H_RES / 8 /* + x_start / 8*/;
-//        size_t data_len = x_end / 8 - x_start / 8;
-//        lcd_data(panel, &color_data[index], data_len);
-//    }
-
-      // v3
-    size_t len = (y_end - y_start) * (x_end - x_start) / 8;
-    // transfer frame buffer
-    lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, color_data, len);
-
-    display_frame(panel);
-
+    // make x1, w1 multiple of 8
+    if (end_x % 8 > 0) end_x += 8 - end_x % 8;
+    x -= x % 8;
+    if (!panel->_using_partial_mode) panel_ssd1680_init_partial(panel);
+    set_mem_area(panel, x, y, end_x, end_y);
+    //set_mem_pointer(panel, x, y);
+    update_part(panel);
     return ESP_OK;
 }
 

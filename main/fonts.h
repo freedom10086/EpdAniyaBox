@@ -35,7 +35,10 @@
   ******************************************************************************
   */
 
-/* Define to prevent recursive inclusion -------------------------------------*/
+/**
+ *  !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~
+ */
+
 #ifndef __FONTS_H
 #define __FONTS_H
 
@@ -51,10 +54,16 @@ typedef struct {
   const uint8_t *table;
   uint16_t Width;
   uint16_t Height;
+  uint8_t start;
 } sFONT;
 
+extern sFONT Font64_DIGI;
+extern sFONT Font32_2;
+extern sFONT Font32;
 extern sFONT Font24;
+extern sFONT Font20_2;
 extern sFONT Font20;
+extern sFONT Font16_2;
 extern sFONT Font16;
 extern sFONT Font12;
 extern sFONT Font8;

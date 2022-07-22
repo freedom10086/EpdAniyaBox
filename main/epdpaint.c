@@ -116,7 +116,7 @@ void epd_paint_draw_pixel(epd_paint_t *epd_paint, int x, int y, int colored) {
  */
 void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_char, sFONT *font, int colored) {
     int i, j;
-    unsigned int char_offset = (ascii_char - ' ') * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+    unsigned int char_offset = (ascii_char - font->start) * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
     const uint8_t *ptr = &font->table[char_offset];
 
     for (j = 0; j < font->Height; j++) {
