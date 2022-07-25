@@ -29,7 +29,6 @@
  */
 #define NMEA_PARSER_RUNTIME_BUFFER_SIZE (CONFIG_NMEA_PARSER_RING_BUFFER_SIZE / 2)
 #define NMEA_MAX_STATEMENT_ITEM_LENGTH (16)
-#define NMEA_EVENT_LOOP_QUEUE_SIZE (16)
 
 /**
  * @brief Define of NMEA Parser Event base
@@ -635,8 +634,6 @@ static void nmea_parser_task_entry(void *arg)
                 break;
             }
         }
-        /* Drive the event loop */
-        esp_event_loop_run(esp_gps->event_loop_hdl, pdMS_TO_TICKS(50));
     }
     vTaskDelete(NULL);
 }
@@ -661,7 +658,7 @@ void init_gps_device(uart_port_t uart_num) {
  * @param config Configuration of NMEA Parser
  * @return nmea_parser_handle_t handle of nmea_parser
  */
-nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
+nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config, esp_event_loop_handle_t event_loop_hdl)
 {
     esp_gps_t *esp_gps = calloc(1, sizeof(esp_gps_t));
     if (!esp_gps) {
@@ -722,15 +719,8 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     /* Set pattern queue size */
     uart_pattern_queue_reset(esp_gps->uart_port, config->uart.event_queue_size);
     uart_flush(esp_gps->uart_port);
-    /* Create Event loop */
-    esp_event_loop_args_t loop_args = {
-        .queue_size = NMEA_EVENT_LOOP_QUEUE_SIZE,
-        .task_name = NULL
-    };
-    if (esp_event_loop_create(&loop_args, &esp_gps->event_loop_hdl) != ESP_OK) {
-        ESP_LOGE(GPS_TAG, "create event loop faild");
-        goto err_eloop;
-    }
+
+    esp_gps->event_loop_hdl = event_loop_hdl;
 
     // some setting
     init_gps_device(esp_gps->uart_port);
@@ -751,8 +741,6 @@ nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config)
     return esp_gps;
     /*Error Handling*/
 err_task_create:
-    esp_event_loop_delete(esp_gps->event_loop_hdl);
-err_eloop:
 err_uart_install:
     uart_driver_delete(esp_gps->uart_port);
 err_uart_config:
@@ -773,7 +761,6 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
     vTaskDelete(esp_gps->tsk_hdl);
-    esp_event_loop_delete(esp_gps->event_loop_hdl);
     esp_err_t err = uart_driver_delete(esp_gps->uart_port);
     free(esp_gps->buffer);
     free(esp_gps);

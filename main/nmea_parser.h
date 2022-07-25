@@ -179,7 +179,7 @@ typedef enum {
  * @param config Configuration of NMEA Parser
  * @return nmea_parser_handle_t handle of NMEA parser
  */
-nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config);
+nmea_parser_handle_t nmea_parser_init(const nmea_parser_config_t *config, esp_event_loop_handle_t event_loop_hdl);
 
 /**
  * @brief Deinit NMEA Parser

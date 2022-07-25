@@ -21,16 +21,6 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-
-/* Littlevgl specific */
-#ifdef LV_LVGL_H_INCLUDE_SIMPLE
-#include "lvgl.h"
-#else
-
-#include "lvgl/lvgl.h"
-
-#endif
-
 #include "main_page.h"
 #include "nmea_parser.h"
 #include "ble_device.h"
@@ -43,6 +33,18 @@ static const char *TAG = "BIKE_MAIN";
 
 #define TIME_ZONE (+8)   //Beijing Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
+
+
+esp_event_loop_handle_t event_loop_handle;
+
+static void application_task(void* args)
+{
+    while(1) {
+        ESP_LOGI(TAG, "application_task: running application task");
+        esp_event_loop_run(event_loop_handle, 100);
+        vTaskDelay(10);
+    }
+}
 
 /**
  * @brief GPS Event Handler
@@ -84,10 +86,26 @@ gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t 
  **********************/
 void app_main() {
     // esp_log_level_set("*", ESP_LOG_WARN);
+
+    // create event loop
+    esp_event_loop_args_t loop_args = {
+            .queue_size = 16,
+            .task_name = NULL // no task will be created
+    };
+
+    // Create the event loops
+    ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &event_loop_handle));
+
+    //esp_event_loop_delete(esp_gps->event_loop_hdl);
+
+    ESP_LOGI(TAG, "starting application task");
+    // Create the application task with the same priority as the current task
+    xTaskCreate(application_task, "application_task", 3072, NULL, uxTaskPriorityGet(NULL), NULL);
+
     /* NMEA parser configuration */
     nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
     /* init NMEA parser library */
-    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config);
+    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config, event_loop_handle);
     /* register event handler for NMEA parser library */
     nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
 
