@@ -188,7 +188,7 @@ static esp_err_t lcd_data(lcd_ssd1680_panel_t *panel, const uint8_t *data, size_
 }
 
 static esp_err_t lcd_cmd(lcd_ssd1680_panel_t *panel, const uint8_t cmd, const void *param, size_t param_size) {
-    ESP_LOGI(TAG, "lcd cmd 0x%02x", cmd);
+    // ESP_LOGI(TAG, "lcd cmd 0x%02x", cmd);
     esp_err_t ret;
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
@@ -264,24 +264,39 @@ esp_err_t panel_ssd1680_sw_reset(lcd_ssd1680_panel_t *panel) {
 static esp_err_t
 set_mem_area(lcd_ssd1680_panel_t *ssd1680, uint16_t start_x, uint16_t start_y, uint16_t end_x, uint16_t end_y) {
     /* x point must be the multiple of 8 or the last 3 bits will be ignored */
-    // 1680是左闭右闭
     end_x -= 1;
     end_y -= 1;
 
-    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_START_END,
-            (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
+    if (start_x != ssd1680->_current_mem_area_start_x
+        || end_x != ssd1680->_current_mem_area_end_x) {
+        lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_START_END,
+                (uint8_t[]) {(start_x >> 3) & 0xff, (end_x >> 3) & 0xff}, 2);
+    }
 
-    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_START_END,
-            (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, end_y & 0xff, (end_y >> 8) & 0xff},
-            4);
+    if (start_y != ssd1680->_current_mem_area_start_y
+        || end_y != ssd1680->_current_mem_area_end_y) {
+        lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_START_END,
+                (uint8_t[]) {start_y & 0xff, (start_y >> 8) & 0xff, end_y & 0xff, (end_y >> 8) & 0xff},
+                4);
+    }
 
+    ssd1680->_current_mem_area_start_x = start_x;
+    ssd1680->_current_mem_area_end_x = end_x;
+    ssd1680->_current_mem_area_start_y = start_y;
+    ssd1680->_current_mem_area_end_y = end_y;
     return ESP_OK;
 }
 
 static esp_err_t set_mem_pointer(lcd_ssd1680_panel_t *ssd1680, uint16_t x, uint16_t y) {
-    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER, (uint8_t[]) {(x >> 3) & 0xff}, 1);
-    lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER,
-            (uint8_t[]) {y & 0xff, (y >> 8) & 0xff}, 2);
+    if (x != ssd1680->_current_mem_pointer_x) {
+        lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER, (uint8_t[]) {(x >> 3) & 0xff}, 1);
+    }
+    if (y != ssd1680->_current_mem_pointer_y) {
+        lcd_cmd(ssd1680, SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER,
+                (uint8_t[]) {y & 0xff, (y >> 8) & 0xff}, 2);
+    }
+    ssd1680->_current_mem_pointer_x = x;
+    ssd1680->_current_mem_pointer_y = y;
     return ESP_OK;
 }
 
@@ -360,6 +375,11 @@ esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
 
 //    //  Display update control
 //    lcd_cmd(panel, SSD1680_CMD_DISPLAY_UPDATE_CONTROL_1, (uint8_t[]) {0x00, 0x80}, 2);
+
+    panel->_current_mem_area_start_x = -1;
+    panel->_current_mem_area_start_y = -1;
+    panel->_current_mem_pointer_x = -1;
+    panel->_current_mem_pointer_y = -1;
 
     set_mem_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
     set_mem_pointer(panel, 0, 0);

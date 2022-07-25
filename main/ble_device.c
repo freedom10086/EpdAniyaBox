@@ -25,7 +25,7 @@
 
 #define INVALID_HANDLE   0
 
-ESP_EVENT_DEFINE_BASE(ESP_BLE_DEVICE_EVENT);
+ESP_EVENT_DEFINE_BASE(BLE_DEVICE_EVENT);
 
 /* Declare static functions */
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -699,19 +699,6 @@ esp_event_loop_handle_t ble_device_init(const ble_device_config_t *config) {
     if (local_mtu_ret) {
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
-
-    /* Create Event loop */
-    esp_event_loop_args_t loop_args = {
-            .queue_size = 64,
-            .task_name = NULL
-    };
-
-    esp_event_loop_handle_t hdl;
-    if (esp_event_loop_create(&loop_args, &hdl) != ESP_OK) {
-        ESP_LOGE(GATTC_TAG, "create ble event loop faild");
-        return NULL;
-    }
-
     return NULL;
 }
 

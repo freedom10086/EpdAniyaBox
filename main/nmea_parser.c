@@ -34,7 +34,7 @@
  * @brief Define of NMEA Parser Event base
  *
  */
-ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
+ESP_EVENT_DEFINE_BASE(BIKE_GPS_EVENT);
 
 static const char *GPS_TAG = "nmea_parser";
 
@@ -540,7 +540,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
                 if (((esp_gps->parsed_statement) & esp_gps->all_statements) == esp_gps->all_statements) {
                     esp_gps->parsed_statement = 0;
                     /* Send signal to notify that GPS information has been updated */
-                    esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UPDATE,
+                    esp_event_post_to(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, GPS_UPDATE,
                                       &(esp_gps->parent), sizeof(gps_t), 100 / portTICK_PERIOD_MS);
                 }
             } else {
@@ -548,7 +548,7 @@ static esp_err_t gps_decode(esp_gps_t *esp_gps, size_t len)
             }
             if (esp_gps->cur_statement == STATEMENT_UNKNOWN) {
                 /* Send signal to notify that one unknown statement has been met */
-                esp_event_post_to(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, GPS_UNKNOWN,
+                esp_event_post_to(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, GPS_UNKNOWN,
                                   esp_gps->buffer, len, 100 / portTICK_PERIOD_MS);
             }
         }
@@ -782,7 +782,7 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
 esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_register_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ESP_EVENT_ANY_ID,
+    return esp_event_handler_register_with(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID,
                                            event_handler, handler_args);
 }
 
@@ -799,5 +799,5 @@ esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handl
 esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler)
 {
     esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, ESP_NMEA_EVENT, ESP_EVENT_ANY_ID, event_handler);
+    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID, event_handler);
 }

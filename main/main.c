@@ -1,13 +1,3 @@
-/* LVGL Example project
- *
- * Basic project to test LVGL on ESP32 based projects.
- *
- * This example code is in the Public Domain (or CC0 licensed, at your option.)
- *
- * Unless required by applicable law or agreed to in writing, this
- * software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
- * CONDITIONS OF ANY KIND, either express or implied.
- */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,26 +24,16 @@ static const char *TAG = "BIKE_MAIN";
 #define TIME_ZONE (+8)   //Beijing Time
 #define YEAR_BASE (2000) //date in GPS starts from 2000
 
-
 esp_event_loop_handle_t event_loop_handle;
 
-static void application_task(void* args)
-{
-    while(1) {
+static void application_task(void *args) {
+    while (1) {
         ESP_LOGI(TAG, "application_task: running application task");
         esp_event_loop_run(event_loop_handle, 100);
         vTaskDelay(10);
     }
 }
 
-/**
- * @brief GPS Event Handler
- *
- * @param event_handler_arg handler specific arguments
- * @param event_base event base, here is fixed to ESP_NMEA_EVENT
- * @param event_id event id
- * @param event_data event specific arguments
- */
 static void
 gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     gps_t *gps = NULL;
@@ -75,6 +55,28 @@ gps_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t 
         case GPS_UNKNOWN:
             /* print unknown statements */
             ESP_LOGW(TAG, "Unknown statement:%s", (char *) event_data);
+            break;
+        default:
+            break;
+    }
+}
+
+static void
+pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                              void *event_data) {
+    spl06_data_t *data = NULL;
+    switch (event_id) {
+        case SPL06_SENSOR_UPDATE:
+            data = (spl06_data_t *) event_data;
+            ESP_LOGI(TAG, "pressure: %.2f,\r\n"
+                          "temp: %.2f,\r\n"
+                          "altitude: %.2f\r\n",
+                     data->pressure,
+                     data->temp,
+                     data->altitude);
+
+            main_page_update_temperature(data->temp);
+            main_page_update_altitude(data->altitude);
             break;
         default:
             break;
@@ -117,20 +119,7 @@ void app_main() {
     /**
      * main page
      */
-    init_main_page();
-
-    /**
-     * status bar
-     */
-    //esp_event_loop_handle_t status_bar_event_hdl = init_status_bar(NULL);
-
-    //vTaskDelay(1000 / portTICK_PERIOD_MS);
-
-    //update_status_bar(status_bar_event_hdl);
-
-    //vTaskDelay(10000 / portTICK_PERIOD_MS);
-
-    //deinit_status_bar(status_bar_event_hdl);
+    main_page_init();
 
     /**
      *  sd card
@@ -168,7 +157,8 @@ void app_main() {
 
     */
 
-    spl06_t *spl06 = spl06_init();
+    spl06_t *spl06 = spl06_init(event_loop_handle);
+    spl06_add_handler(spl06, pressure_sensor_event_handler, NULL);
 
     bool en_fifo = false;
     spl06_start(spl06, en_fifo);

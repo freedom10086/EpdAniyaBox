@@ -1,9 +1,32 @@
 #ifndef SPL06_H
 #define SPL06_H
 
+#include "esp_types.h"
+#include "esp_event.h"
+
 #include "pressure_common.h"
 
+ESP_EVENT_DECLARE_BASE(BIKE_PRESSURE_SENSOR_EVENT);
+
+typedef enum {
+    SPL06_SENSOR_UPDATE,
+} spl06_event_id_t;
+
 typedef struct {
+    float temp;
+
+    float pressure;
+
+    float altitude;
+
+} spl06_data_t;
+
+typedef struct {
+
+    esp_event_loop_handle_t event_loop_hdl;
+
+    spl06_data_t data;
+
     bool en_fifo;
 
     // TMP_PRC[2:0]        : 0      | 1 | 2 | 3 | 4  | 5  | 6  | 7
@@ -19,8 +42,6 @@ typedef struct {
     bool raw_temp_valid;
 
     int32_t raw_pressure;
-
-    float altitude;
 
     // measurement mode and type
     /**
@@ -55,7 +76,7 @@ typedef struct {
     uint8_t fifo_len;
 } spl06_t;
 
-spl06_t* spl06_init();
+spl06_t* spl06_init(esp_event_loop_handle_t event_loop_hdl);
 void spl06_fifo_state(spl06_t *spl06);
 void spl06_meassure_state(spl06_t *spl06);
 void spl06_reset(spl06_t *spl06);
@@ -66,5 +87,7 @@ uint32_t spl06_read_raw_pressure(spl06_t *spl06);
 float spl06_get_temperature(spl06_t *spl06);
 float spl06_get_pressure(spl06_t *spl06);
 void spl06_read_raw_fifo(spl06_t *spl06);
+
+esp_err_t spl06_add_handler(spl06_t *spl06, esp_event_handler_t event_handler, void *handler_args);
 
 #endif

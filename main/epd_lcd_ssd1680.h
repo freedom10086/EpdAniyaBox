@@ -21,6 +21,13 @@ typedef struct {
     bool reset_level;
     bool _using_partial_mode;
     bool _initial_refresh; // is first refresh
+
+    int _current_mem_area_start_x;
+    int _current_mem_area_end_x;
+    int _current_mem_area_start_y;
+    int _current_mem_area_end_y;
+    int _current_mem_pointer_x;
+    int _current_mem_pointer_y;
 } lcd_ssd1680_panel_t;
 
 /**

@@ -5,6 +5,7 @@
 
 #include "spl06.h"
 
+ESP_EVENT_DEFINE_BASE(BIKE_PRESSURE_SENSOR_EVENT);
 
 // or 0x76 if SDO is low
 #define SPL06_ADDR 0x77
@@ -222,12 +223,14 @@ static float scale_factor(int oversampling_rate) {
     return k;
 }
 
-spl06_t *spl06_init() {
+spl06_t *spl06_init(esp_event_loop_handle_t event_loop_hdl) {
     spl06_t *spl06 = calloc(1, sizeof(spl06_t));
     if (!spl06) {
         ESP_LOGE(TAG, "calloc memory for spl06 failed");
         return NULL;
     }
+
+    spl06->event_loop_hdl = event_loop_hdl;
 
     i2c_config_t conf = {
             .mode = I2C_MODE_MASTER,
@@ -534,21 +537,40 @@ static void spl06_task_entry(void *arg) {
                 }
             }
         } else {
+            bool data_updated = false;
             if (spl06->pressure_ready && spl06->raw_temp_valid) {
                 spl06_read_raw_pressure(spl06);
                 float pressure = spl06_get_pressure(spl06);
                 //float kal_pressure = kalman1_filter(&state1, pressure);
-                ESP_LOGI(TAG, "spl06 raw_pressure %d,  pressure: %f altitude:%f altitudeV2:%f",
-                         spl06->raw_pressure, pressure, calc_altitude(pressure), calc_altitude_v2(pressure));
+//                ESP_LOGI(TAG, "spl06 raw_pressure %d,  pressure: %f altitude:%f altitudeV2:%f",
+//                         spl06->raw_pressure, pressure, calc_altitude(pressure), calc_altitude_v2(pressure));
                 //printf("pressure:%f,raw_pressure:%d,kal_kal_pressure:%f\n", pressure, spl06.raw_pressure, kal_pressure);
+
+                spl06->data.pressure = pressure;
+                spl06->data.altitude = calc_altitude(pressure);
+
+                data_updated = true;
             }
 
             if (spl06->temp_ready) {
                 spl06_read_raw_temp(spl06);
                 float temp = spl06_get_temperature(spl06);
-                ESP_LOGI(TAG, "spl06 raw_temp %d,  temp: %f", spl06->raw_temp, temp);
+//                ESP_LOGI(TAG, "spl06 raw_temp %d,  temp: %f", spl06->raw_temp, temp);
                 //printf("temp:%f\n", temp);
+
+                spl06->data.temp = temp;
+                data_updated = true;
+            }
+
+            if (data_updated) {
+                esp_event_post_to(spl06->event_loop_hdl, BIKE_PRESSURE_SENSOR_EVENT, SPL06_SENSOR_UPDATE,
+                                  &(spl06->data), sizeof(spl06_data_t), 100 / portTICK_PERIOD_MS);
             }
         }
     }
+}
+
+esp_err_t spl06_add_handler(spl06_t *spl06, esp_event_handler_t event_handler, void *handler_args) {
+    return esp_event_handler_register_with(spl06->event_loop_hdl, BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                           event_handler, handler_args);
 }

@@ -40,6 +40,11 @@
 
 #define DISP_BUFF_SIZE LCD_H_RES * LCD_V_RES
 
+static main_page_data_t main_page_data = {
+        .temperature_valid = false,
+        .altitude_valid = false,
+};
+
 /**********************
  *  STATIC PROTOTYPES
  **********************/
@@ -47,11 +52,14 @@ static void guiTask(void *pvParameter);
 
 static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, uint32_t loop_cnt);
 
-void init_main_page() {
+void main_page_init() {
     /* If you want to use a task to create the graphic, you NEED to create a Pinned task
      * Otherwise there can be problem such as memory corruption and so on.
      * NOTE: When not using Wi-Fi nor Bluetooth you can pin the guiTask to core 0 */
     xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
+
+    main_page_data.temperature_valid = false;
+    main_page_data.altitude_valid = false;
 }
 
 /* Creates a semaphore to handle concurrent call to lvgl stuff
@@ -183,6 +191,7 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     epd_paint_clear(epd_paint, 1);
 
     int y = 0;
+    char buf[20] = {0};
     // status bar
     // time
 
@@ -196,7 +205,12 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     epd_paint_draw_string_at(epd_paint, 0, y - 2, "G:12", &Font16_2, 0);
 
     // temp
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * 6, y - 2, "T:18.5", &Font16_2, 0);
+    if (main_page_data.temperature_valid) {
+        sprintf(buf, "T:%.1f", main_page_data.temperature);
+    } else {
+        sprintf(buf, "T:--");
+    }
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(buf), y - 2, buf, &Font16_2, 0);
     epd_paint_draw_horizontal_line(epd_paint, 0, y + 16, LCD_H_RES, 0);
 
     y += 22;
@@ -249,10 +263,16 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
     y += 4;
 
-    // degre and height
-    epd_paint_draw_string_at(epd_paint, 4, y, "287.4", &Font32_2, 0);
+    // altitude
+    if (main_page_data.altitude_valid) {
+        sprintf(buf, "%.1f", main_page_data.altitude);
+    } else {
+        sprintf(buf, "--");
+    }
+    epd_paint_draw_string_at(epd_paint, 4, y, buf, &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 8, "m", &Font8, 0);
 
+    // degree
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "3.2", &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "d", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "e", &Font8, 0);
@@ -260,4 +280,14 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
 
     panel_ssd1680_draw_bitmap(panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
     panel_ssd1680_refresh(panel, true);
+}
+
+void main_page_update_temperature(float temp) {
+    main_page_data.temperature_valid = true;
+    main_page_data.temperature = temp;
+}
+
+void main_page_update_altitude(float altitude) {
+    main_page_data.altitude_valid = true;
+    main_page_data.altitude = altitude;
 }
