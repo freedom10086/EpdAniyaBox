@@ -17,6 +17,7 @@
 #include "sd_card.h"
 #include "kalman_filter.h"
 #include "ms5611.h"
+#include "ws2812.h"
 #include "spl06.h"
 
 static const char *TAG = "BIKE_MAIN";
@@ -115,6 +116,8 @@ void app_main() {
     // nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
     /* deinit NMEA parser library */
     // nmea_parser_deinit(nmea_hdl);
+
+    ws2812_start();
 
     /**
      * main page
