@@ -45,6 +45,8 @@ static main_page_data_t main_page_data = {
         .altitude_valid = false,
 };
 
+static char draw_text_buf[20] = {0};
+
 /**********************
  *  STATIC PROTOTYPES
  **********************/
@@ -171,7 +173,7 @@ static void guiTask(void *pvParameter) {
 
         draw_main_page(&panel, epd_paint, loop_cnt);
 
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
             // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
@@ -187,11 +189,54 @@ static void guiTask(void *pvParameter) {
     vTaskDelete(NULL);
 }
 
+static int draw_speed_area(epd_paint_t *epd_paint, int y) {
+    // speed
+    float wheel_speed = main_page_data.wheel_speed;
+    if (main_page_data.wheel_speed_valid) {
+        if (wheel_speed > 999.9) {
+            wheel_speed = 999.9f;
+        }
+        sprintf(draw_text_buf, "%02d", (int) wheel_speed);
+    } else {
+        sprintf(draw_text_buf, "00");
+    }
+    uint8_t speed_start_x_1 = LCD_H_RES / 2 - 6 - Font36.Width * 2;
+    epd_paint_draw_string_at(epd_paint, speed_start_x_1, y, draw_text_buf, &Font36, 0);
+
+    // speed point
+    uint8_t start_speed_point_x = speed_start_x_1 + Font36.Width * strlen(draw_text_buf) + 3;
+    epd_paint_draw_filled_rectangle(epd_paint, start_speed_point_x + 4, y + Font36.Height - 5,
+                                    start_speed_point_x,
+                                    y + Font36.Height - 1, 0);
+
+    if (main_page_data.wheel_speed_valid) {
+        if (strlen(draw_text_buf) == 2) {
+            sprintf(draw_text_buf, "%02d", (int)(wheel_speed * 100) % 100);
+        } else {
+            sprintf(draw_text_buf, "%d", (int)(wheel_speed * 10) % 10);
+        }
+    } else {
+        sprintf(draw_text_buf, "00");
+    }
+    epd_paint_draw_string_at(epd_paint, start_speed_point_x + 6, y, draw_text_buf, &Font36, 0);
+
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 12, "k", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 12, "m", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 12, "/", &Font8, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 3 * Font8.Height + 12, "h", &Font8, 0);
+
+    // avg and max speed
+    y += 40;
+    epd_paint_draw_string_at(epd_paint, 16, y, "avg:28.1", &Font16_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 16, y, "max:28.1", &Font16_2, 0);
+
+    return y;
+}
+
 static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 1);
 
     int y = 0;
-    char buf[20] = {0};
     // status bar
     // time
 
@@ -204,30 +249,17 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     // gps
     epd_paint_draw_string_at(epd_paint, 0, y - 2, "G:12", &Font16_2, 0);
 
-    // temp
+    // temperature
     if (main_page_data.temperature_valid) {
-        sprintf(buf, "T:%.1f", main_page_data.temperature);
+        sprintf(draw_text_buf, "T:%.1f", main_page_data.temperature);
     } else {
-        sprintf(buf, "T:--");
+        sprintf(draw_text_buf, "T:--");
     }
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(buf), y - 2, buf, &Font16_2, 0);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(draw_text_buf), y - 2, draw_text_buf, &Font16_2, 0);
     epd_paint_draw_horizontal_line(epd_paint, 0, y + 16, LCD_H_RES, 0);
 
     y += 22;
-    // speed
-    epd_paint_draw_filled_rectangle(epd_paint, LCD_H_RES / 2 - 2, y + Font36.Height - 5, LCD_H_RES / 2 + 2,
-                                    y + Font36.Height - 1, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - 6 - Font36.Width * 2, y, "12", &Font36, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 6, y, "34", &Font36, 0);
-
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 12, "k", &Font8, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 12, "m", &Font8, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 12, "/", &Font8, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 3 * Font8.Height + 12, "h", &Font8, 0);
-
-    y += 40;
-    epd_paint_draw_string_at(epd_paint, 16, y, "avg:28.1", &Font16_2, 0);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 16, y, "max:28.1", &Font16_2, 0);
+    y = draw_speed_area(epd_paint, y);
 
     y += 18;
     // heart and crank
@@ -240,7 +272,13 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
 
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "76", &Font32_2, 0);
+    // crank cadence valid
+    if (main_page_data.crank_cadence_valid) {
+        sprintf(draw_text_buf, "%.1f", main_page_data.crank_cadence);
+    } else {
+        sprintf(draw_text_buf, "0.0");
+    }
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, draw_text_buf, &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "r", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
@@ -265,11 +303,11 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
 
     // altitude
     if (main_page_data.altitude_valid) {
-        sprintf(buf, "%.1f", main_page_data.altitude);
+        sprintf(draw_text_buf, "%.1f", main_page_data.altitude);
     } else {
-        sprintf(buf, "--");
+        sprintf(draw_text_buf, "--");
     }
-    epd_paint_draw_string_at(epd_paint, 4, y, buf, &Font32_2, 0);
+    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 8, "m", &Font8, 0);
 
     // degree
@@ -290,4 +328,14 @@ void main_page_update_temperature(float temp) {
 void main_page_update_altitude(float altitude) {
     main_page_data.altitude_valid = true;
     main_page_data.altitude = altitude;
+}
+
+void main_page_update_speed(float speed) {
+    main_page_data.wheel_speed = speed;
+    main_page_data.wheel_speed_valid = true;
+}
+
+void main_page_update_crank_cadence(float crank_cadence) {
+    main_page_data.crank_cadence = crank_cadence;
+    main_page_data.crank_cadence_valid = true;
 }

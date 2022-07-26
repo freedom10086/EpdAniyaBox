@@ -8,13 +8,19 @@
 #include "driver/uart.h"
 #include "esp_gattc_api.h"
 
+#include "event_common.h"
+
 #define CYCLING_SPEED_AND_CADENCE_SERVICE_UUID 0x1816 // Cycling Speed and Cadence
 #define DEVICE_INFORMATION_SERVICE_UUID 0x180A
 #define BATTERY_LEVEL_SERVICE_UUID 0x180F
-#define BATTERY_LEVEL_CHARACTERISTIC_UUID 0x2A19 // read and notify
 
+#define BATTERY_LEVEL_CHARACTERISTIC_UUID 0x2A19 // read and notify
 #define CSC_MEASUREMENT_CHARACTERISTIC 0x2A5B
 #define CSC_FEATURE_CHARACTERISTIC 0x2A5C
+
+extern esp_event_loop_handle_t event_loop_handle;
+
+ESP_EVENT_DECLARE_BASE(BIKE_BLE_CSC_SENSOR_EVENT);
 
 typedef struct {
     bool first_wheel_data_get;

@@ -766,38 +766,3 @@ esp_err_t nmea_parser_deinit(nmea_parser_handle_t nmea_hdl)
     free(esp_gps);
     return err;
 }
-
-/**
- * @brief Add user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @param handler_args handler specific arguments
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_NO_MEM: Cannot allocate memory for the handler
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_add_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler, void *handler_args)
-{
-    esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_register_with(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID,
-                                           event_handler, handler_args);
-}
-
-/**
- * @brief Remove user defined handler for NMEA parser
- *
- * @param nmea_hdl handle of NMEA parser
- * @param event_handler user defined event handler
- * @return esp_err_t
- *  - ESP_OK: Success
- *  - ESP_ERR_INVALIG_ARG: Invalid combination of event base and event id
- *  - Others: Fail
- */
-esp_err_t nmea_parser_remove_handler(nmea_parser_handle_t nmea_hdl, esp_event_handler_t event_handler)
-{
-    esp_gps_t *esp_gps = (esp_gps_t *)nmea_hdl;
-    return esp_event_handler_unregister_with(esp_gps->event_loop_hdl, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID, event_handler);
-}

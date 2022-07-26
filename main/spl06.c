@@ -569,8 +569,3 @@ static void spl06_task_entry(void *arg) {
         }
     }
 }
-
-esp_err_t spl06_add_handler(spl06_t *spl06, esp_event_handler_t event_handler, void *handler_args) {
-    return esp_event_handler_register_with(spl06->event_loop_hdl, BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                           event_handler, handler_args);
-}

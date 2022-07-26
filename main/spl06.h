@@ -4,22 +4,10 @@
 #include "esp_types.h"
 #include "esp_event.h"
 
+#include "event_common.h"
 #include "pressure_common.h"
 
 ESP_EVENT_DECLARE_BASE(BIKE_PRESSURE_SENSOR_EVENT);
-
-typedef enum {
-    SPL06_SENSOR_UPDATE,
-} spl06_event_id_t;
-
-typedef struct {
-    float temp;
-
-    float pressure;
-
-    float altitude;
-
-} spl06_data_t;
 
 typedef struct {
 
@@ -87,7 +75,5 @@ uint32_t spl06_read_raw_pressure(spl06_t *spl06);
 float spl06_get_temperature(spl06_t *spl06);
 float spl06_get_pressure(spl06_t *spl06);
 void spl06_read_raw_fifo(spl06_t *spl06);
-
-esp_err_t spl06_add_handler(spl06_t *spl06, esp_event_handler_t event_handler, void *handler_args);
 
 #endif

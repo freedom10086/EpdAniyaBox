@@ -5,6 +5,8 @@
 
 #define TAG "BLE_CSC"
 
+ESP_EVENT_DEFINE_BASE(BIKE_BLE_CSC_SENSOR_EVENT);
+
 // csc 计算的临时变量
 static csc_measure_sensor_t csc_measure_sensor = {
         .first_wheel_data_get = false,
@@ -16,6 +18,9 @@ static csc_measure_sensor_t csc_measure_sensor = {
         .last_crank_revolutions = 0,
         .last_crank_event_time = 0,
 };
+
+// event data
+static ble_csc_data_t ble_csc_data;
 
 // 轮速传感器
 void on_wheel_measurement_received(uint32_t wheel_revolutions, uint16_t last_wheel_event_time) {
@@ -52,6 +57,13 @@ void on_wheel_measurement_received(uint32_t wheel_revolutions, uint16_t last_whe
 
         ESP_LOGI(TAG, " > speed: %fm/s %fkm/h, sensor_distance:%f, total_distance: %f, wheel_dance: %f",
                  speed, speed * 3.6f, sensor_total_distance, total_distance, wheel_dance);
+
+        ble_csc_data.wheel_cadence = wheel_dance;
+        ble_csc_data.wheel_speed = speed * 3.6f;
+        ble_csc_data.wheel_total_distance = total_distance;
+
+        esp_event_post_to(event_loop_handle, BIKE_BLE_CSC_SENSOR_EVENT, BLE_CSC_SENSOR_UPDATE,
+                          &ble_csc_data, sizeof(ble_csc_data_t), 100 / portTICK_PERIOD_MS);
     }
 
     if (!csc_measure_sensor.first_wheel_data_get) {
@@ -76,12 +88,16 @@ void on_crank_measurement_received(uint16_t crank_revolutions, uint16_t last_cra
             timeDifference =
                     (float) (last_crank_event_time - csc_measure_sensor.last_crank_event_time) / 1024.0f; // [s]
 
-        float crankCadence =
+        float crank_cadence =
                 (float) (crank_revolutions - csc_measure_sensor.last_crank_revolutions) * 60.0f / timeDifference;
-        if (crankCadence > 0) {
+        if (crank_cadence > 0) {
             //final float gearRatio = mWheelCadence / crankCadence;
 
-            ESP_LOGI(TAG, " > crank_cadence: %f", crankCadence);
+            ESP_LOGI(TAG, " > crank_cadence: %f", crank_cadence);
+
+            ble_csc_data.crank_cadence = crank_cadence;
+            esp_event_post_to(event_loop_handle, BIKE_BLE_CSC_SENSOR_EVENT, BLE_CSC_SENSOR_UPDATE,
+                              &ble_csc_data, sizeof(ble_csc_data_t), 100 / portTICK_PERIOD_MS);
         }
     }
     if (!csc_measure_sensor.first_crank_data_get) {

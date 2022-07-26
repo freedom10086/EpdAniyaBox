@@ -29,7 +29,7 @@ esp_event_loop_handle_t event_loop_handle;
 
 static void application_task(void *args) {
     while (1) {
-        ESP_LOGI(TAG, "application_task: running application task");
+        // ESP_LOGI(TAG, "application_task: running application task");
         esp_event_loop_run(event_loop_handle, 100);
         vTaskDelay(10);
     }
@@ -84,6 +84,45 @@ pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     }
 }
 
+static void
+ble_csc_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                              void *event_data) {
+    ble_csc_data_t *data = NULL;
+    switch (event_id) {
+        case BLE_CSC_SENSOR_UPDATE:
+            data = (ble_csc_data_t *) event_data;
+            ESP_LOGI(TAG, "wheel_total_distance: %.2f,\r\n"
+                          "wheel_cadence: %.2f,\r\n"
+                          "wheel_speed: %.2f\r\n"
+                          "crank_cadence: %.2f\r\n",
+                     data->wheel_total_distance,
+                     data->wheel_cadence,
+                     data->wheel_speed,
+                     data->crank_cadence);
+            main_page_update_speed(data->wheel_speed);
+            main_page_update_crank_cadence(data->crank_cadence);
+            break;
+        default:
+            break;
+    }
+}
+
+static void
+ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                             void *event_data) {
+    ble_hrm_data_t *data = NULL;
+    switch (event_id) {
+        case BLE_HRM_SENSOR_UPDATE:
+            data = (ble_hrm_data_t *) event_data;
+            ESP_LOGI(TAG, "heart_rate: %.2f,\r\n",
+                     data->heart_rate);
+            //main_page_update_temperature(data->temp);
+            break;
+        default:
+            break;
+    }
+}
+
 /**********************
  *   APPLICATION MAIN
  **********************/
@@ -110,10 +149,8 @@ void app_main() {
     /* init NMEA parser library */
     nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config, event_loop_handle);
     /* register event handler for NMEA parser library */
-    nmea_parser_add_handler(nmea_hdl, gps_event_handler, NULL);
-
-    /* unregister event handler */
-    // nmea_parser_remove_handler(nmea_hdl, gps_event_handler);
+    esp_event_handler_register_with(event_loop_handle, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID,
+                                    gps_event_handler, NULL);
     /* deinit NMEA parser library */
     // nmea_parser_deinit(nmea_hdl);
 
@@ -132,7 +169,13 @@ void app_main() {
     /**
      *  init ble device
      */
-    // esp_event_loop_handle_t ble_dev_evt_hdl = ble_device_init(NULL);
+    ble_device_init(NULL);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    ble_hrm_sensor_event_handler, NULL);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    ble_csc_sensor_event_handler, NULL);
 
     /*
     // ms5611
@@ -161,7 +204,9 @@ void app_main() {
     */
 
     spl06_t *spl06 = spl06_init(event_loop_handle);
-    spl06_add_handler(spl06, pressure_sensor_event_handler, NULL);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    pressure_sensor_event_handler, NULL);
 
     bool en_fifo = false;
     spl06_start(spl06, en_fifo);

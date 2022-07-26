@@ -17,7 +17,7 @@
 #include "ble_csc.h"
 #include "ble_device.h"
 
-#define GATTC_TAG "GATTC_DEMO"
+#define GATTC_TAG "BLE_DEVICE"
 
 #define PROFILE_NUM      2
 #define PROFILE_A_APP_ID 0
@@ -26,6 +26,8 @@
 #define INVALID_HANDLE   0
 
 ESP_EVENT_DEFINE_BASE(BLE_DEVICE_EVENT);
+
+static bool scanning = false;
 
 /* Declare static functions */
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -40,11 +42,46 @@ static esp_bt_uuid_t notify_descr_uuid = {
         .uuid = {.uuid16 = ESP_GATT_UUID_CHAR_CLIENT_CONFIG,},
 };
 
+struct service_char_map_t {
+    uint16_t service_uuid;
+    uint16_t char_uuid;
+    bool en_read;
+    bool en_notify;
+};
+
+static struct service_char_map_t service_char_map[] = {
+        {.service_uuid = CYCLING_SPEED_AND_CADENCE_SERVICE_UUID, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
+        {.service_uuid = BATTERY_LEVEL_SERVICE_UUID, .char_uuid = BATTERY_LEVEL_CHARACTERISTIC_UUID, .en_notify = true, .en_read = true},
+        {.service_uuid = ESP_GATT_UUID_HEART_RATE_SVC, .char_uuid = ESP_GATT_HEART_RATE_MEAS, .en_notify = true},
+        {.service_uuid = 0x0000,} // stop flag
+};
+
+static struct service_char_map_t find_service_char(esp_bt_uuid_t uuid) {
+    if (uuid.len == ESP_UUID_LEN_16) {
+        int i = 0;
+        while (1) {
+            struct service_char_map_t item = service_char_map[i];
+            i++;
+
+            if (item.service_uuid == 0x0000) {
+                return item;
+            }
+
+            if (item.service_uuid == uuid.uuid.uuid16) {
+                return item;
+            }
+        }
+    }
+
+    struct service_char_map_t t = {.service_uuid = 0x0000,};
+    return t;
+}
+
 static esp_ble_scan_params_t ble_scan_params = {
         .scan_type              = BLE_SCAN_TYPE_PASSIVE,
         .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
         .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
-        .scan_interval          = 0x50,
+        .scan_interval          = 0x80, // 0x50 = 100ms
         .scan_window            = 0x30,
         .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
@@ -72,7 +109,7 @@ struct gattc_profile_inst {
 /* One gatt-based profile one app_id and one gattc_if, this array will store the gattc_if returned by ESP_GATTS_REG_EVT */
 static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
         [PROFILE_A_APP_ID] = {
-                .device_name ="24564-1",
+                .device_name ="24564-1", // e6 10 d5 83 b7 1c
                 .gattc_cb = gattc_profile_event_handler,
                 .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
         },
@@ -124,9 +161,11 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
     switch (event) {
         case ESP_GATTC_REG_EVT:
             ESP_LOGI(GATTC_TAG, "ESP_GATTC_REG_EVT");
-            esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
-            if (scan_ret) {
-                ESP_LOGE(GATTC_TAG, "set scan params error, error code = %x", scan_ret);
+            if (!scanning) {
+                esp_err_t scan_ret = esp_ble_gap_set_scan_params(&ble_scan_params);
+                if (scan_ret) {
+                    ESP_LOGE(GATTC_TAG, "set scan params error, error code = %x", scan_ret);
+                }
             }
             break;
         case ESP_GATTC_CONNECT_EVT: {
@@ -172,7 +211,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         case ESP_GATTC_SEARCH_RES_EVT: {
             // 查找服务结果（esp_ble_gattc_search_service 回调）
             ESP_LOGI(GATTC_TAG,
-                     "   ESP_GATTC_SEARCH_RES_EVT conn_id = %x is primary service %d uuid:%x, start handle:%d end handle %d current handle value %d",
+                     "   ESP_GATTC_SEARCH_RES_EVT conn_id = %x is primary service %d uuid:%x, start handle:%d end handle %d current handle %d",
                      p_data->search_res.conn_id,
                      p_data->search_res.is_primary, p_data->search_res.srvc_id.uuid.uuid.uuid16,
                      p_data->search_res.start_handle, p_data->search_res.end_handle,
@@ -188,6 +227,8 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             break;
         }
         case ESP_GATTC_SEARCH_CMPL_EVT:
+            ESP_LOGI(GATTC_TAG, "ESP_GATTC_SEARCH_CMPL_EVT service count: %d", gl_profile_tab[idx].service_count);
+
             // 所有服务查询结束
             if (p_data->search_cmpl.status != ESP_GATT_OK) {
                 ESP_LOGE(GATTC_TAG, "search service failed, error status = %x", p_data->search_cmpl.status);
@@ -201,113 +242,95 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                 ESP_LOGI(GATTC_TAG, "unknown service source");
             }
 
-            ESP_LOGI(GATTC_TAG, "ESP_GATTC_SEARCH_CMPL_EVT service count: %d",
-                     gl_profile_tab[idx].service_count);
-
             for (int i = 0; i < gl_profile_tab[idx].service_count; ++i) {
                 struct gattc_service_inst ser_inst = gl_profile_tab[idx].services[i];
                 esp_gattc_char_elem_t *char_elem_result = NULL;
 
-                if (ser_inst.uuid.len == ESP_UUID_LEN_16 &&
-                    (ser_inst.uuid.uuid.uuid16 == CYCLING_SPEED_AND_CADENCE_SERVICE_UUID
-                     || ser_inst.uuid.uuid.uuid16 == BATTERY_LEVEL_SERVICE_UUID)) {
-
-                    uint16_t count = 0;
-                    // 查询服务属性attribute数量
-                    esp_gatt_status_t status = esp_ble_gattc_get_attr_count(gattc_if,
-                                                                            p_data->search_cmpl.conn_id,
-                                                                            ESP_GATT_DB_CHARACTERISTIC,
-                                                                            ser_inst.service_start_handle,
-                                                                            ser_inst.service_end_handle,
-                                                                            INVALID_HANDLE,
-                                                                            &count);
-                    if (status != ESP_GATT_OK) {
-                        ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_attr_count error");
-                    }
-
-                    if (count == 0) {
-                        ESP_LOGI(GATTC_TAG, "   service %x has no char", ser_inst.uuid.uuid.uuid16);
-                        continue;
-                    }
-                    ESP_LOGI(GATTC_TAG, "   service %x has %d char", ser_inst.uuid.uuid.uuid16, count);
-
-                    char_elem_result = (esp_gattc_char_elem_t *) malloc(sizeof(esp_gattc_char_elem_t) * count);
-                    if (!char_elem_result) {
-                        ESP_LOGE(GATTC_TAG, "gattc no mem");
-                        continue;
-                    }
-
-                    if (ser_inst.uuid.uuid.uuid16 == CYCLING_SPEED_AND_CADENCE_SERVICE_UUID) {
-                        esp_bt_uuid_t remote_filter_char_uuid = {
-                                .len = ESP_UUID_LEN_16,
-                                .uuid = {.uuid16 = CSC_MEASUREMENT_CHARACTERISTIC,},
-                        };
-
-                        // 查询csc measurement characteristic
-                        status = esp_ble_gattc_get_char_by_uuid(gattc_if,
-                                                                p_data->search_cmpl.conn_id,
-                                                                ser_inst.service_start_handle,
-                                                                ser_inst.service_end_handle,
-                                                                remote_filter_char_uuid,
-                                                                char_elem_result,
-                                                                &count);
-                        if (status != ESP_GATT_OK) {
-                            ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_char_by_uuid error");
-                        }
-
-                        /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
-                        if (count > 0 && (char_elem_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)) {
-                            gl_profile_tab[idx].services[i].char_handle = char_elem_result[0].char_handle;
-                            // 注册notify
-
-                            ESP_LOGI(GATTC_TAG, "   service %x char %x connid:%d handle:%d register_for_notify",
-                                     ser_inst.uuid.uuid.uuid16, char_elem_result[0].uuid.uuid.uuid16,
-                                     p_data->search_cmpl.conn_id, char_elem_result[0].char_handle);
-                            esp_ble_gattc_register_for_notify(gattc_if, gl_profile_tab[idx].remote_bda, char_elem_result[0].char_handle);
-                        }
-                    } else if (ser_inst.uuid.uuid.uuid16 == BATTERY_LEVEL_SERVICE_UUID) {
-                        esp_bt_uuid_t remote_filter_char_uuid = {
-                                .len = ESP_UUID_LEN_16,
-                                .uuid = {.uuid16 = BATTERY_LEVEL_CHARACTERISTIC_UUID,},
-                        };
-
-                        // 查询 battery level
-                        status = esp_ble_gattc_get_char_by_uuid(gattc_if,
-                                                                p_data->search_cmpl.conn_id,
-                                                                ser_inst.service_start_handle,
-                                                                ser_inst.service_end_handle,
-                                                                remote_filter_char_uuid,
-                                                                char_elem_result,
-                                                                &count);
-                        if (status != ESP_GATT_OK) {
-                            ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_char_by_uuid error");
-                        }
-                        /*  Every service have only one char in our 'ESP_GATTS_DEMO' demo, so we used first 'char_elem_result' */
-                        if (count > 0 && (char_elem_result[0].properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)) {
-                            gl_profile_tab[idx].services[i].char_handle = char_elem_result[0].char_handle;
-                            // 注册notify
-                            ESP_LOGI(GATTC_TAG, "   service %x char %x connid:%d handle:%d register_for_notify",
-                                     ser_inst.uuid.uuid.uuid16, char_elem_result[0].uuid.uuid.uuid16,
-                                     p_data->search_cmpl.conn_id, char_elem_result[0].char_handle);
-
-                            esp_ble_gattc_register_for_notify(gattc_if, gl_profile_tab[idx].remote_bda,
-                                                              char_elem_result[0].char_handle);
-                        }
-
-                        if (count > 0 && (char_elem_result[0].properties & ESP_GATT_CHAR_PROP_BIT_READ)) {
-                            gl_profile_tab[idx].services[i].char_handle = char_elem_result[0].char_handle;
-                            ESP_LOGI(GATTC_TAG, "   service:%x char:%x connid:%d handle:%d read for value",
-                                     ser_inst.uuid.uuid.uuid16, char_elem_result[0].uuid.uuid.uuid16,
-                                     p_data->search_cmpl.conn_id, char_elem_result[0].char_handle);
-
-                            esp_ble_gattc_read_char(gattc_if, p_data->search_cmpl.conn_id,
-                                                    char_elem_result[0].char_handle, ESP_GATT_AUTH_REQ_NONE);
-                        }
-                    }
-
-                    /* free char_elem_result */
-                    free(char_elem_result);
+                uint16_t count = 0;
+                // 查询服务属性attribute数量
+                esp_gatt_status_t status = esp_ble_gattc_get_attr_count(gattc_if,
+                                                                        p_data->search_cmpl.conn_id,
+                                                                        ESP_GATT_DB_CHARACTERISTIC,
+                                                                        ser_inst.service_start_handle,
+                                                                        ser_inst.service_end_handle,
+                                                                        INVALID_HANDLE,
+                                                                        &count);
+                if (status != ESP_GATT_OK) {
+                    ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_attr_count error");
                 }
+
+                if (count == 0) {
+                    ESP_LOGI(GATTC_TAG, "   service %x has no char", ser_inst.uuid.uuid.uuid16);
+                    continue;
+                }
+                ESP_LOGI(GATTC_TAG, "   service %x has %d char", ser_inst.uuid.uuid.uuid16, count);
+
+                char_elem_result = (esp_gattc_char_elem_t *) malloc(sizeof(esp_gattc_char_elem_t) * count);
+                if (!char_elem_result) {
+                    ESP_LOGE(GATTC_TAG, "gattc no mem");
+                    continue;
+                }
+
+                struct service_char_map_t find_ser_char = find_service_char(ser_inst.uuid);
+                if (find_ser_char.service_uuid == 0x0000) {
+                    free(char_elem_result);
+                    continue;
+                }
+
+                esp_bt_uuid_t remote_filter_char_uuid = {
+                        .len = ESP_UUID_LEN_16,
+                        .uuid = {.uuid16 = find_ser_char.char_uuid,},
+                };
+
+                // 查询csc measurement characteristic
+                // esp_ble_gattc_get_all_char
+                status = esp_ble_gattc_get_char_by_uuid(gattc_if,
+                                                        p_data->search_cmpl.conn_id,
+                                                        ser_inst.service_start_handle,
+                                                        ser_inst.service_end_handle,
+                                                        remote_filter_char_uuid,
+                                                        char_elem_result,
+                                                        &count);
+                if (status != ESP_GATT_OK) {
+                    ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_char_by_uuid error %x, %x", ser_inst.uuid.uuid.uuid16, find_ser_char.char_uuid);
+                }
+
+                if (count > 0) {
+                    ESP_LOGI(GATTC_TAG, "find %d char from ser %x", count, ser_inst.uuid.uuid.uuid16);
+                    for (int char_idx = 0; char_idx < count; char_idx++) {
+                        esp_gattc_char_elem_t elem = char_elem_result[char_idx];
+                        ESP_LOGI(GATTC_TAG, "\t char uuid:%x r:%d, w:%d, n:%d",
+                                 elem.uuid.uuid.uuid16,
+                                 (elem.properties & ESP_GATT_CHAR_PROP_BIT_READ) > 0,
+                                 (elem.properties & ESP_GATT_CHAR_PROP_BIT_WRITE) > 0,
+                                 (elem.properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY) > 0);
+
+                        if (elem.uuid.uuid.uuid16 == find_ser_char.char_uuid) {
+                            if (find_ser_char.en_notify && (elem.properties & ESP_GATT_CHAR_PROP_BIT_NOTIFY)) {
+                                gl_profile_tab[idx].services[i].char_handle = elem.char_handle;
+                                // 注册notify
+                                ESP_LOGI(GATTC_TAG, "       service %x char %x connid:%d handle:%d register_for_notify",
+                                         ser_inst.uuid.uuid.uuid16, elem.uuid.uuid.uuid16,
+                                         p_data->search_cmpl.conn_id, elem.char_handle);
+                                esp_ble_gattc_register_for_notify(gattc_if, gl_profile_tab[idx].remote_bda,
+                                                                  elem.char_handle);
+                            }
+
+                            if (find_ser_char.en_read && (elem.properties & ESP_GATT_CHAR_PROP_BIT_READ)) {
+                                gl_profile_tab[idx].services[i].char_handle = elem.char_handle;
+                                ESP_LOGI(GATTC_TAG, "       service:%x char:%x connid:%d handle:%d read for value",
+                                         ser_inst.uuid.uuid.uuid16, elem.uuid.uuid.uuid16,
+                                         p_data->search_cmpl.conn_id, elem.char_handle);
+
+                                esp_ble_gattc_read_char(gattc_if, p_data->search_cmpl.conn_id, elem.char_handle,
+                                                        ESP_GATT_AUTH_REQ_NONE);
+                            }
+                        }
+                    }
+                }
+
+                /* free char_elem_result */
+                free(char_elem_result);
             }
             break;
         case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
@@ -380,13 +403,13 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
         case ESP_GATTC_NOTIFY_EVT:
             // notify通知数据
             if (p_data->notify.is_notify) {
-                ESP_LOGI(GATTC_TAG, "ESP_GATTC_NOTIFY_EVT, receive notify conn_id:%d handle:%d  value:",
-                         p_data->notify.conn_id, p_data->notify.handle);
+                //ESP_LOGI(GATTC_TAG, "ESP_GATTC_NOTIFY_EVT, receive notify conn_id:%d handle:%d  value:",
+                //         p_data->notify.conn_id, p_data->notify.handle);
             } else {
-                ESP_LOGI(GATTC_TAG, "ESP_GATTC_NOTIFY_EVT, receive indicate conn_id:%d handle:%d  value:",
-                         p_data->notify.conn_id, p_data->notify.handle);
+                //ESP_LOGI(GATTC_TAG, "ESP_GATTC_NOTIFY_EVT, receive indicate conn_id:%d handle:%d  value:",
+                //         p_data->notify.conn_id, p_data->notify.handle);
             }
-                    esp_log_buffer_hex(GATTC_TAG, p_data->notify.value, p_data->notify.value_len);
+            //esp_log_buffer_hex(GATTC_TAG, p_data->notify.value, p_data->notify.value_len);
 
             esp_bt_uuid_t uuid = find_service_inst_by_handle(idx, p_data->notify.handle).uuid;
             if (CYCLING_SPEED_AND_CADENCE_SERVICE_UUID == uuid.uuid.uuid16) {
@@ -465,6 +488,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             break;
         }
         case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
+            scanning = true;
             //scan start complete event to indicate scan start successfully or failed
             if (param->scan_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
                 ESP_LOGE(GATTC_TAG, "scan start failed, error status = %x", param->scan_start_cmpl.status);
@@ -487,10 +511,9 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         break;
                     }
 
-                    ESP_LOGI(GATTC_TAG, "\n");
                     ESP_LOGI(GATTC_TAG, "searched Device:");
                             esp_log_buffer_char(GATTC_TAG, adv_name, adv_name_len);
-                    ESP_LOGI(GATTC_TAG, "RSSI of packet:%d dbm", scan_result->scan_rst.rssi);
+                    //ESP_LOGI(GATTC_TAG, "RSSI of packet:%d dbm", scan_result->scan_rst.rssi);
 
                     // 只有主动搜索才有 被动搜索没有
                     // BLE_SCAN_TYPE_PASSIVE ACTIVE
@@ -502,31 +525,21 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     }
 
                     if (scan_result->scan_rst.adv_data_len > 0) {
-                        ESP_LOGI(GATTC_TAG, "adv data:");
-                                esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[0],
-                                                   scan_result->scan_rst.adv_data_len);
-                    }
-
-                    adv_manufacturer_specific_type = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
-                                                                              ESP_BLE_AD_MANUFACTURER_SPECIFIC_TYPE,
-                                                                              &adv_manufacturer_specific_type_len);
-                    if (adv_manufacturer_specific_type_len > 0) {
-                        ESP_LOGI(GATTC_TAG, "searched MANUFACTURER SPECIFIC Len %d", adv_manufacturer_specific_type_len);
-                                esp_log_buffer_hex(GATTC_TAG, adv_manufacturer_specific_type, adv_manufacturer_specific_type_len);
-                        //esp_log_buffer_char(GATTC_TAG, adv_manufacturer_specific_type, adv_manufacturer_specific_type_len);
+                        //ESP_LOGI(GATTC_TAG, "adv data:");
+                        //esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[0],scan_result->scan_rst.adv_data_len);
                     }
 
                     uint8_t length;
                     uint8_t *part_uuid = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_16SRV_PART, &length);
                     if(length != 0) {
-                                esp_log_buffer_hex("searched part uuid", part_uuid, length);
+                        esp_log_buffer_hex("searched part uuid", part_uuid, length);
                     }
 
                     // 支持的service的uuid
                     uint8_t *cmpl_uuid  = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_16SRV_CMPL, &length);
                     if(length != 0) {
                         // eg  16 18 0a 18 0f 18 ->0x1816 0x180f 0x180a
-                                esp_log_buffer_hex("searched cmpl uuid", cmpl_uuid, length);
+                        esp_log_buffer_hex("searched cmpl uuid", cmpl_uuid, length);
                     }
 
                     ESP_LOGI(GATTC_TAG, "\n");
@@ -535,10 +548,11 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
 
                         if (strlen(remote_device_name) == adv_name_len &&
                             strncmp((char *) adv_name, remote_device_name, adv_name_len) == 0) {
-                            ESP_LOGI(GATTC_TAG, "searched device %s\n", remote_device_name);
+                            ESP_LOGI(GATTC_TAG, "searched device 【%s】", remote_device_name);
                             if (!gl_profile_tab[i].connect) {
                                 gl_profile_tab[i].connect = true;
                                 ESP_LOGI(GATTC_TAG, "connect to the remote device. %s", remote_device_name);
+                                esp_log_buffer_hex("bda", scan_result->scan_rst.bda, ESP_BD_ADDR_LEN);
                                 if (all_client_connected()) {
                                     esp_ble_gap_stop_scanning();
                                 }
@@ -549,6 +563,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     }
                     break;
                 case ESP_GAP_SEARCH_INQ_CMPL_EVT:
+                    scanning = false;
                     // 搜索duration时间到了
                     ESP_LOGI(GATTC_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT");
                     for (int i = 0; i < PROFILE_NUM; ++i) {
@@ -577,6 +592,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                 ESP_LOGE(GATTC_TAG, "scan stop failed, error status = %x", param->scan_stop_cmpl.status);
                 break;
             }
+            scanning = false;
             ESP_LOGI(GATTC_TAG, "ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT stop scan successfully");
             break;
 
@@ -631,8 +647,7 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
     } while (0);
 }
 
-esp_event_loop_handle_t ble_device_init(const ble_device_config_t *config) {
-
+esp_err_t ble_device_init(const ble_device_config_t *config) {
     // Initialize NVS.
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -699,17 +714,9 @@ esp_event_loop_handle_t ble_device_init(const ble_device_config_t *config) {
     if (local_mtu_ret) {
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
-    return NULL;
+    return ESP_OK;
 }
 
 esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
-    return NULL;
-}
-
-esp_err_t ble_device_add_handler(esp_event_loop_handle_t hdl, esp_event_handler_t event_handler, void *handler_args) {
-    return NULL;
-}
-
-esp_err_t ble_device_remove_handler(esp_event_loop_handle_t hdl, esp_event_handler_t event_handler) {
     return NULL;
 }
