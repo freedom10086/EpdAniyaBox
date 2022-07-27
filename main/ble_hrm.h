@@ -10,7 +10,6 @@
 
 #include "event_common.h"
 
-#define HEART_RATE_SERVICE_UUID 0x180D // Cycling Speed and Cadence
 #define HEART_RATE_MEASUREMENT_CHARACTERISTIC 0x2A37
 #define HR_SENSOR_LOCATION_CHARACTERISTIC_UUID 0x2A38
 
@@ -22,6 +21,6 @@ static struct csc_measure_sensor {
     uint16_t heart_rate;
 } hr_measure_sensor_t;
 
-void ble_parse_hrm_data(esp_ble_gattc_cb_param_t *p_data);
+void ble_parse_hrm_data(char *device_name, esp_ble_gattc_cb_param_t *p_data);
 
 #endif

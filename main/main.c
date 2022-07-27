@@ -114,9 +114,9 @@ ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
     switch (event_id) {
         case BLE_HRM_SENSOR_UPDATE:
             data = (ble_hrm_data_t *) event_data;
-            ESP_LOGI(TAG, "heart_rate: %.2f,\r\n",
+            ESP_LOGI(TAG, "heart_rate: %d,\r\n",
                      data->heart_rate);
-            //main_page_update_temperature(data->temp);
+            main_page_update_heart_rate(data->heart_rate);
             break;
         default:
             break;
@@ -169,13 +169,13 @@ void app_main() {
     /**
      *  init ble device
      */
-    ble_device_init(NULL);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_hrm_sensor_event_handler, NULL);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_csc_sensor_event_handler, NULL);
+//    ble_device_init(NULL);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    ble_hrm_sensor_event_handler, NULL);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    ble_csc_sensor_event_handler, NULL);
 
     /*
     // ms5611

@@ -262,12 +262,17 @@ static void draw_main_page(lcd_ssd1680_panel_t *panel, epd_paint_t *epd_paint, u
     y = draw_speed_area(epd_paint, y);
 
     y += 18;
-    // heart and crank
     epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 0);
     epd_paint_draw_vertical_line(epd_paint, LCD_H_RES / 2, y, LCD_V_RES - y - 1, 0);
 
     y += 4;
-    epd_paint_draw_string_at(epd_paint, 4, y, "174", &Font32_2, 0);
+    // heart rate
+    if (main_page_data.heart_rate_valid) {
+        sprintf(draw_text_buf, "%d", main_page_data.heart_rate);
+    } else {
+        sprintf(draw_text_buf, "--", main_page_data.heart_rate);
+    }
+    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "b", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 0);
@@ -338,4 +343,9 @@ void main_page_update_speed(float speed) {
 void main_page_update_crank_cadence(float crank_cadence) {
     main_page_data.crank_cadence = crank_cadence;
     main_page_data.crank_cadence_valid = true;
+}
+
+void main_page_update_heart_rate(uint16_t heart_rate) {
+    main_page_data.heart_rate = heart_rate;
+    main_page_data.heart_rate_valid = true;
 }

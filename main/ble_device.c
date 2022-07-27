@@ -19,9 +19,10 @@
 
 #define GATTC_TAG "BLE_DEVICE"
 
-#define PROFILE_NUM      2
+#define PROFILE_NUM      3
 #define PROFILE_A_APP_ID 0
 #define PROFILE_B_APP_ID 1
+#define PROFILE_C_APP_ID 2
 
 #define INVALID_HANDLE   0
 
@@ -78,7 +79,7 @@ static struct service_char_map_t find_service_char(esp_bt_uuid_t uuid) {
 }
 
 static esp_ble_scan_params_t ble_scan_params = {
-        .scan_type              = BLE_SCAN_TYPE_PASSIVE,
+        .scan_type              = BLE_SCAN_TYPE_ACTIVE,
         .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
         .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
         .scan_interval          = 0x80, // 0x50 = 100ms
@@ -115,6 +116,11 @@ static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
         },
         [PROFILE_B_APP_ID] = {
                 .device_name = "XOSS_VOR_S1091",
+                .gattc_cb = gattc_profile_event_handler,
+                .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+        },
+        [PROFILE_C_APP_ID] = {
+                .device_name = "HUAWEI Band HR-81C", // e4 62 40 7e b8 1c
                 .gattc_cb = gattc_profile_event_handler,
                 .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
         }
@@ -169,24 +175,28 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             }
             break;
         case ESP_GATTC_CONNECT_EVT: {
-            // 连接成功
-            ESP_LOGI(GATTC_TAG, "ESP_GATTC_CONNECT_EVT conn_id %d, if %d", p_data->connect.conn_id, gattc_if);
-            gl_profile_tab[idx].conn_id = p_data->connect.conn_id;
-            memcpy(gl_profile_tab[idx].remote_bda, p_data->connect.remote_bda, sizeof(esp_bd_addr_t));
+            // 连接成功 好像一个if连接成功会给所有的appid发一次这个消息 用 gattc_if 区分不出来， 需要用bda, 用底下的ESP_GATTC_OPEN_EVT替代
+            break;
+        }
+        case ESP_GATTC_OPEN_EVT:
+            //  esp_ble_gattc_open 回调 好像open失败没有回调
+            if (param->open.status != ESP_GATT_OK) {
+                gl_profile_tab[idx].connect = false;
+                ESP_LOGE(GATTC_TAG, "open failed, connect_id: %d status %d", p_data->open.conn_id, p_data->open.status);
+                break;
+            }
+            ESP_LOGI(GATTC_TAG, "ESP_GATTC_OPEN_EVT conn_id %d, if %d, device_name:%s",p_data->open.conn_id, gattc_if, gl_profile_tab[idx].device_name);
+            gl_profile_tab[idx].conn_id = p_data->open.conn_id;
+            memcpy(gl_profile_tab[idx].remote_bda, p_data->open.remote_bda, sizeof(esp_bd_addr_t));
+
+            ESP_LOGI(GATTC_TAG, "open success with connect_id:%d", p_data->open.conn_id);
             ESP_LOGI(GATTC_TAG, "REMOTE BDA:");
                     esp_log_buffer_hex(GATTC_TAG, gl_profile_tab[idx].remote_bda, sizeof(esp_bd_addr_t));
+
             esp_err_t mtu_ret = esp_ble_gattc_send_mtu_req(gattc_if, p_data->connect.conn_id);
             if (mtu_ret) {
                 ESP_LOGE(GATTC_TAG, "config MTU error, error code = %x", mtu_ret);
             }
-            break;
-        }
-        case ESP_GATTC_OPEN_EVT:
-            if (param->open.status != ESP_GATT_OK) {
-                ESP_LOGE(GATTC_TAG, "open failed, status %d", p_data->open.status);
-                break;
-            }
-            ESP_LOGI(GATTC_TAG, "open success");
             break;
         case ESP_GATTC_DIS_SRVC_CMPL_EVT:
             if (param->dis_srvc_cmpl.status != ESP_GATT_OK) {
@@ -197,6 +207,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                      param->dis_srvc_cmpl.conn_id);
             // esp_ble_gattc_get_service 查找多个service 返回结果不通过回调
             // filter 为null就查询所有的
+            gl_profile_tab[idx].service_count = 0;
             esp_ble_gattc_search_service(gattc_if, param->cfg_mtu.conn_id, /*&remote_filter_service_uuid*/ NULL);
             // 开始查找服务
             break;
@@ -209,7 +220,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                      param->cfg_mtu.mtu, param->cfg_mtu.conn_id);
             break;
         case ESP_GATTC_SEARCH_RES_EVT: {
-            // 查找服务结果（esp_ble_gattc_search_service 回调）
+            // 查找服务结果（esp_ble_gattc_search_service 回调） 多个service多次回调
             ESP_LOGI(GATTC_TAG,
                      "   ESP_GATTC_SEARCH_RES_EVT conn_id = %x is primary service %d uuid:%x, start handle:%d end handle %d current handle %d",
                      p_data->search_res.conn_id,
@@ -217,12 +228,9 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                      p_data->search_res.start_handle, p_data->search_res.end_handle,
                      p_data->search_res.srvc_id.inst_id);
 
-            struct gattc_service_inst p = {
-                    .uuid = p_data->search_res.srvc_id.uuid,
-                    .service_start_handle = p_data->search_res.start_handle,
-                    .service_end_handle = p_data->search_res.end_handle,
-            };
-            gl_profile_tab[idx].services[gl_profile_tab[idx].service_count] = p;
+            gl_profile_tab[idx].services[gl_profile_tab[idx].service_count].uuid = p_data->search_res.srvc_id.uuid;
+            gl_profile_tab[idx].services[gl_profile_tab[idx].service_count].service_start_handle = p_data->search_res.start_handle;
+            gl_profile_tab[idx].services[gl_profile_tab[idx].service_count].service_end_handle = p_data->search_res.end_handle;
             gl_profile_tab[idx].service_count += 1;
             break;
         }
@@ -334,7 +342,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             }
             break;
         case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
-            // 注册成功回调
+            // 注册notify成功回调
             ESP_LOGI(GATTC_TAG, "ESP_GATTC_REG_FOR_NOTIFY_EVT handle %d", p_data->reg_for_notify.handle);
             if (p_data->reg_for_notify.status != ESP_GATT_OK) {
                 ESP_LOGE(GATTC_TAG, "REG FOR NOTIFY failed: error status = %d handle %d", p_data->reg_for_notify.status, p_data->reg_for_notify.handle);
@@ -370,6 +378,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                         if (ret_status != ESP_GATT_OK) {
                             ESP_LOGE(GATTC_TAG, "esp_ble_gattc_get_descr_by_char_handle error");
                         }
+
                         /* Every char has only one descriptor in our 'ESP_GATTS_DEMO' demo, so we used first 'descr_elem_result' */
                         if (count > 0 && descr_elem_result[0].uuid.len == ESP_UUID_LEN_16 &&
                             descr_elem_result[0].uuid.uuid.uuid16 == ESP_GATT_UUID_CHAR_CLIENT_CONFIG) {
@@ -388,6 +397,8 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
                         if (ret_status != ESP_GATT_OK) {
                             ESP_LOGE(GATTC_TAG, "esp_ble_gattc_write_char_descr error");
+                        } else {
+                            ESP_LOGI(GATTC_TAG, "enable notify service:%x success !", service_inst.uuid.uuid.uuid16);
                         }
 
                         /* free descr_elem_result */
@@ -416,6 +427,8 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                 ble_parse_csc_data(gl_profile_tab[idx].device_name, p_data);
             } else if (BATTERY_LEVEL_SERVICE_UUID == uuid.uuid.uuid16) {
                 ESP_LOGI(GATTC_TAG, "notify battery level %d", *p_data->notify.value);
+            } else if (ESP_GATT_UUID_HEART_RATE_SVC == uuid.uuid.uuid16) {
+                ble_parse_hrm_data(gl_profile_tab[idx].device_name, p_data);
             }
             break;
         case ESP_GATTC_WRITE_DESCR_EVT:
@@ -464,8 +477,17 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             ESP_LOGI(GATTC_TAG, "write char success ");
             break;
         case ESP_GATTC_DISCONNECT_EVT:
-            gl_profile_tab[idx].connect = false;
-            ESP_LOGI(GATTC_TAG, "ESP_GATTC_DISCONNECT_EVT, reason = %d", p_data->disconnect.reason);
+            // 一个设备disconnect 也会给所有的app发一遍这个消息 用bda区分
+            if (memcmp(p_data->disconnect.remote_bda, gl_profile_tab[idx].remote_bda, 6) == 0){
+                ESP_LOGI(GATTC_TAG, "ESP_GATTC_DISCONNECT_EVT, reason = %d device:%s disconnected.", p_data->disconnect.reason, gl_profile_tab[idx].device_name);
+                gl_profile_tab[idx].connect = false;
+                gl_profile_tab[idx].service_count = 0;
+                // not manual disconnect
+                if (ESP_GATT_CONN_TERMINATE_LOCAL_HOST != p_data->disconnect.reason) {
+                    // TODO
+                    // check if need restart scan or reconnect
+                }
+            }
             break;
         default:
             break;
@@ -475,8 +497,6 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
     uint8_t *adv_name = NULL;
     uint8_t adv_name_len = 0;
-    uint8_t *adv_manufacturer_specific_type = NULL;
-    uint8_t adv_manufacturer_specific_type_len = 0;
 
     switch (event) {
         case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT: {
@@ -525,8 +545,8 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                     }
 
                     if (scan_result->scan_rst.adv_data_len > 0) {
-                        //ESP_LOGI(GATTC_TAG, "adv data:");
-                        //esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[0],scan_result->scan_rst.adv_data_len);
+                        ESP_LOGI(GATTC_TAG, "adv data:");
+                        esp_log_buffer_hex(GATTC_TAG, &scan_result->scan_rst.ble_adv[0], scan_result->scan_rst.adv_data_len);
                     }
 
                     uint8_t length;
@@ -549,15 +569,18 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         if (strlen(remote_device_name) == adv_name_len &&
                             strncmp((char *) adv_name, remote_device_name, adv_name_len) == 0) {
                             ESP_LOGI(GATTC_TAG, "searched device 【%s】", remote_device_name);
-                            if (!gl_profile_tab[i].connect) {
-                                gl_profile_tab[i].connect = true;
-                                ESP_LOGI(GATTC_TAG, "connect to the remote device. %s", remote_device_name);
+                            // if gl_profile_tab[i].gattc_if = null may be app not reg success wait
+                            if (!gl_profile_tab[i].connect && ESP_GATT_IF_NONE != gl_profile_tab[i].gattc_if) {
+                                ESP_LOGI(GATTC_TAG, "connect to the remote device. %s gattc_if:%d", remote_device_name, gl_profile_tab[i].gattc_if);
                                 esp_log_buffer_hex("bda", scan_result->scan_rst.bda, ESP_BD_ADDR_LEN);
+
+                                // 异步open返回都是success
+                                esp_ble_gattc_open(gl_profile_tab[i].gattc_if, scan_result->scan_rst.bda,
+                                                   scan_result->scan_rst.ble_addr_type, true);
+                                gl_profile_tab[i].connect = true;
                                 if (all_client_connected()) {
                                     esp_ble_gap_stop_scanning();
                                 }
-                                esp_ble_gattc_open(gl_profile_tab[i].gattc_if, scan_result->scan_rst.bda,
-                                                   scan_result->scan_rst.ble_addr_type, true);
                             }
                         }
                     }
@@ -623,6 +646,10 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
     if (event == ESP_GATTC_REG_EVT) {
         if (param->reg.status == ESP_GATT_OK) {
             gl_profile_tab[param->reg.app_id].gattc_if = gattc_if;
+            ESP_LOGI(GATTC_TAG, "reg app success, app_id %04x, status %d, gattc_if:%d",
+                     param->reg.app_id,
+                     param->reg.status,
+                     gattc_if);
         } else {
             ESP_LOGI(GATTC_TAG, "reg app failed, app_id %04x, status %d",
                      param->reg.app_id,
@@ -630,6 +657,8 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
             return;
         }
     }
+
+    // ESP_LOGI(GATTC_TAG, "event come event_id:%d, gattc_if:%d", event, gattc_if);
 
     /* If the gattc_if equal to profile A, call profile A cb handler,
      * so here call each profile's callback */
@@ -708,6 +737,11 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
     ret = esp_ble_gattc_app_register(PROFILE_B_APP_ID);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s gattc app b register failed, error code = %x\n", __func__, ret);
+    }
+
+    ret = esp_ble_gattc_app_register(PROFILE_C_APP_ID);
+    if (ret) {
+        ESP_LOGE(GATTC_TAG, "%s gattc app c register failed, error code = %x\n", __func__, ret);
     }
 
     esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
