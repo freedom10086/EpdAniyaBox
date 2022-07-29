@@ -416,12 +416,7 @@ float spl06_get_pressure(spl06_t *spl06) {
     return pressure;
 }
 
-static void spl06_task_entry(void *arg) {
-    spl06_t *spl06 = (spl06_t *) arg;
-
-    spl06_reset(spl06);
-    vTaskDelay(pdMS_TO_TICKS(30));
-
+static void read_coef_data(spl06_t *spl06) {
     // wait for COEF READY
     while (1) {
         spl06_meassure_state(spl06);
@@ -494,14 +489,36 @@ static void spl06_task_entry(void *arg) {
     ESP_LOGI(TAG, "spl06 read COEF c0:%x c1:%x c00:%x c10:%x c01:%x c11:%x c20:%x c21:%x c30:%x",
              c0, c1, c00, c10, c01, c11, c20, c21, c30);
 
+    spl06 -> coef_load = true;
+}
+
+static void spl06_task_entry(void *arg) {
+    spl06_t *spl06 = (spl06_t *) arg;
+
     // read device id
     uint8_t device_id;
-    i2c_read(SPL06_ID, &device_id, 1);
-    ESP_LOGI(TAG, "PROD_ID:%x, REV_ID:%x", device_id >> 4, device_id & 0x0f);
+    for (int i = 0; i < 3; ++i) {
+        i2c_read(SPL06_ID, &device_id, 1);
+        if (device_id == 0x10) {
+            spl06 -> connected = true;
+            ESP_LOGI(TAG, "PROD_ID:%x, REV_ID:%x", device_id >> 4, device_id & 0x0f);
+            break;
+        } else {
+            vTaskDelay(pdMS_TO_TICKS(5));
+        }
+    }
 
-    /**
-     * wait for sensor ready
-     */
+    if (device_id != 0x10) {
+        // not spl06 break
+        ESP_LOGE(TAG, "not spl06 device_id: %x", device_id);
+    }
+
+    spl06_reset(spl06);
+    vTaskDelay(pdMS_TO_TICKS(30));
+
+    read_coef_data(spl06);
+
+    // wait for sensor ready
     while (1) {
         if (spl06->sensor_ready) {
             ESP_LOGI(TAG, "spl06 sensor ready...");

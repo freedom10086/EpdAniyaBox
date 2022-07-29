@@ -6,6 +6,7 @@
 #pragma once
 
 #include "esp_lcd_panel_vendor.h"
+#include "esp_lcd_panel_io.h"
 
 #ifdef __cplusplus
 extern "C" {

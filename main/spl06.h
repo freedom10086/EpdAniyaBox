@@ -10,7 +10,6 @@
 ESP_EVENT_DECLARE_BASE(BIKE_PRESSURE_SENSOR_EVENT);
 
 typedef struct {
-
     esp_event_loop_handle_t event_loop_hdl;
 
     spl06_data_t data;
@@ -47,6 +46,9 @@ typedef struct {
      */
     uint8_t meas_ctrl;
 
+    // coef是否已加载
+    bool coef_load;
+
     bool coef_ready;
 
     bool sensor_ready;
@@ -62,6 +64,9 @@ typedef struct {
     int32_t fifo[32];
 
     uint8_t fifo_len;
+
+    // 是否已连接
+    bool connected;
 } spl06_t;
 
 spl06_t* spl06_init(esp_event_loop_handle_t event_loop_hdl);

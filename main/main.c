@@ -11,14 +11,15 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-#include "main_page.h"
+#include "display/main_page.h"
 #include "nmea_parser.h"
-#include "ble_device.h"
+#include "ble/ble_device.h"
 #include "sd_card.h"
-#include "kalman_filter.h"
+#include "tools/kalman_filter.h"
 #include "ms5611.h"
-#include "ws2812.h"
+#include "led/ws2812.h"
 #include "spl06.h"
+#include "display/display.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -69,13 +70,7 @@ pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     switch (event_id) {
         case SPL06_SENSOR_UPDATE:
             data = (spl06_data_t *) event_data;
-            ESP_LOGI(TAG, "pressure: %.2f,\r\n"
-                          "temp: %.2f,\r\n"
-                          "altitude: %.2f\r\n",
-                     data->pressure,
-                     data->temp,
-                     data->altitude);
-
+            ESP_LOGI(TAG, "pressure: %.2f,temp: %.2f, altitude: %.2f", data->pressure, data->temp, data->altitude);
             main_page_update_temperature(data->temp);
             main_page_update_altitude(data->altitude);
             break;
@@ -114,8 +109,7 @@ ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
     switch (event_id) {
         case BLE_HRM_SENSOR_UPDATE:
             data = (ble_hrm_data_t *) event_data;
-            ESP_LOGI(TAG, "heart_rate: %d,\r\n",
-                     data->heart_rate);
+            ESP_LOGI(TAG, "heart_rate: %d", data->heart_rate);
             main_page_update_heart_rate(data->heart_rate);
             break;
         default:
@@ -157,9 +151,9 @@ void app_main() {
     ws2812_start();
 
     /**
-     * main page
+     * display
      */
-    main_page_init();
+    display_init();
 
     /**
      *  sd card
@@ -169,13 +163,13 @@ void app_main() {
     /**
      *  init ble device
      */
-//    ble_device_init(NULL);
-//    esp_event_handler_register_with(event_loop_handle,
-//                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-//                                    ble_hrm_sensor_event_handler, NULL);
-//    esp_event_handler_register_with(event_loop_handle,
-//                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-//                                    ble_csc_sensor_event_handler, NULL);
+    ble_device_init(NULL);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    ble_hrm_sensor_event_handler, NULL);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    ble_csc_sensor_event_handler, NULL);
 
     /*
     // ms5611
@@ -207,7 +201,4 @@ void app_main() {
     esp_event_handler_register_with(event_loop_handle,
                                     BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
                                     pressure_sensor_event_handler, NULL);
-
-    bool en_fifo = false;
-    spl06_start(spl06, en_fifo);
 }

@@ -21,7 +21,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 
-#include "epdpaint.h"
+#include "display/epdpaint.h"
 #include "epd_lcd_ssd1680.h"
 
 static const char *TAG = "lcd_panel.ssd1680";

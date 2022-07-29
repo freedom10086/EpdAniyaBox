@@ -50,6 +50,17 @@ struct service_char_map_t {
     bool en_notify;
 };
 
+typedef struct {
+      uint8_t *dev_name;
+      int dev_name_len;
+      esp_bd_addr_t bda;
+      esp_ble_addr_type_t ble_addr_type;
+      int rssi;
+} scan_result_t;
+
+int scan_result_count = 0;
+scan_result_t scan_rst_list[30];
+
 static struct service_char_map_t service_char_map[] = {
         {.service_uuid = CYCLING_SPEED_AND_CADENCE_SERVICE_UUID, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
         {.service_uuid = BATTERY_LEVEL_SERVICE_UUID, .char_uuid = BATTERY_LEVEL_CHARACTERISTIC_UUID, .en_notify = true, .en_read = true},
@@ -531,9 +542,33 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         break;
                     }
 
+                    // 保存搜索结果
+                    int index = scan_result_count;
+                    for (int i = 0; i < scan_result_count; ++i) {
+                        if (memcpy(scan_rst_list[scan_result_count].bda, scan_result->scan_rst.bda, 6) == 0) {
+                            // exist
+                            index = i;
+                        }
+                    }
+
+                    bool new_scan_rst = index == scan_result_count;
+                    scan_rst_list[index].dev_name = adv_name;
+                    scan_rst_list[index].dev_name_len = adv_name_len;
+                    memcpy(scan_rst_list[index].bda, scan_result->scan_rst.bda, sizeof(esp_bd_addr_t));
+                    scan_rst_list[index].ble_addr_type = scan_result->scan_rst.ble_addr_type;
+                    scan_rst_list[index].rssi = scan_result->scan_rst.rssi;
+
+                    if (new_scan_rst) {
+                        scan_result_count ++;
+                    }
+
+                    if (!new_scan_rst) {
+                        break;
+                    }
+
                     ESP_LOGI(GATTC_TAG, "searched Device:");
                             esp_log_buffer_char(GATTC_TAG, adv_name, adv_name_len);
-                    //ESP_LOGI(GATTC_TAG, "RSSI of packet:%d dbm", scan_result->scan_rst.rssi);
+                    ESP_LOGI(GATTC_TAG, "RSSI of packet:%d dbm, total find device:%d", scan_result->scan_rst.rssi, scan_result_count);
 
                     // 只有主动搜索才有 被动搜索没有
                     // BLE_SCAN_TYPE_PASSIVE ACTIVE

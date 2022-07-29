@@ -1,6 +1,9 @@
 #ifndef MAIN_PAGE_H
 #define MAIN_PAGE_H
 
+#include "epd_lcd_ssd1680.h"
+#include "epdpaint.h"
+
 typedef struct {
     float temperature;
     bool temperature_valid;
@@ -18,7 +21,7 @@ typedef struct {
     bool heart_rate_valid;
 } main_page_data_t;
 
-void main_page_init();
+void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt);
 
 void main_page_update_temperature(float temp);
 

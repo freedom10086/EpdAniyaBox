@@ -1,8 +1,10 @@
 idf_component_register(SRCS
-        "font8.c" "font12.c" "font16.c" "font16_2.c" "font20.c" "font24.c" "font20_2.c" "font32.c" "font32_2.c" "font36.c" "epdpaint.c"
-        "kalman_filter.c"
-        "sd_card.c" "gpx_writer.c"  "ble_csc.c" "ble_hrm.c" "ble_device.c"
-        "led_strip_encoder.c" "ws2812.c"
+        "display/font8.c" "display/font12.c" "display/font16.c" "display/font16_2.c" "display/font20.c" "display/font24.c" "display/font20_2.c" "display/font32.c" "display/font32_2.c" "display/font36.c" "display/epdpaint.c"
+        "tools/kalman_filter.c"
+        "sd_card.c" "gpx_writer.c"  "ble/ble_csc.c" "ble/ble_hrm.c" "ble/ble_device.c"
+        "led/led_strip_encoder.c" "led/ws2812.c"
         "pressure_common.c" "ms5611.c" "spl06.c"
-        "epd_lcd_ssd1680.c" "main_page.c" "nmea_parser.c" "main.c"
+        "zw800.c"
+        "nmea_parser.c"
+        "display/epd_lcd_ssd1680.c" "display/main_page.c" "display/display.c" "main.c"
                     INCLUDE_DIRS ".")
