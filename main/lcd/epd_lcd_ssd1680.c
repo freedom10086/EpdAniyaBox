@@ -21,7 +21,7 @@
 #include "esp_log.h"
 #include "esp_check.h"
 
-#include "display/epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "epd_lcd_ssd1680.h"
 
 static const char *TAG = "lcd_panel.ssd1680";
@@ -359,7 +359,7 @@ esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
     lcd_cmd(panel, SSD1680_CMD_DRIVER_OUTPUT_CONTROL,
             (uint8_t[]) {(LCD_V_RES - 1) & 0xff, ((LCD_V_RES - 1) >> 8) & 0xff, 0x00}, 3);
 
-    // Set display RAM size by Command 0x11, 0x44, 0x45
+    // Set lcd RAM size by Command 0x11, 0x44, 0x45
     // 00 –Y decrement, X decrement, //01 –Y decrement, X increment, //10 –Y increment, X decrement, //11 –Y increment, X increment [POR]
     lcd_cmd(panel, SSD1680_CMD_DATA_ENTRY_MODE_SETTING, (uint8_t[]) {0x03}, 1);
 

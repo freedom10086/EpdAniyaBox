@@ -11,7 +11,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-#include "display/main_page.h"
+#include "lcd/main_page.h"
 #include "nmea_parser.h"
 #include "ble/ble_device.h"
 #include "sd_card.h"
@@ -19,7 +19,8 @@
 #include "ms5611.h"
 #include "led/ws2812.h"
 #include "spl06.h"
-#include "display/display.h"
+#include "lcd/display.h"
+#include "zw800.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -138,22 +139,22 @@ void app_main() {
     // Create the application task with the same priority as the current task
     xTaskCreate(application_task, "application_task", 3072, NULL, uxTaskPriorityGet(NULL), NULL);
 
-    /* NMEA parser configuration */
-    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
-    /* init NMEA parser library */
-    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config, event_loop_handle);
-    /* register event handler for NMEA parser library */
-    esp_event_handler_register_with(event_loop_handle, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID,
-                                    gps_event_handler, NULL);
+//    /* NMEA parser configuration */
+//    nmea_parser_config_t config = NMEA_PARSER_CONFIG_DEFAULT();
+//    /* init NMEA parser library */
+//    nmea_parser_handle_t nmea_hdl = nmea_parser_init(&config, event_loop_handle);
+//    /* register event handler for NMEA parser library */
+//    esp_event_handler_register_with(event_loop_handle, BIKE_GPS_EVENT, ESP_EVENT_ANY_ID,
+//                                    gps_event_handler, NULL);
     /* deinit NMEA parser library */
     // nmea_parser_deinit(nmea_hdl);
 
     ws2812_start();
 
     /**
-     * display
+     * lcd
      */
-    display_init();
+    // display_init();
 
     /**
      *  sd card
@@ -163,13 +164,13 @@ void app_main() {
     /**
      *  init ble device
      */
-    ble_device_init(NULL);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_hrm_sensor_event_handler, NULL);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_csc_sensor_event_handler, NULL);
+//    ble_device_init(NULL);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_BLE_HRM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    ble_hrm_sensor_event_handler, NULL);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    ble_csc_sensor_event_handler, NULL);
 
     /*
     // ms5611
@@ -197,8 +198,12 @@ void app_main() {
 
     */
 
-    spl06_t *spl06 = spl06_init(event_loop_handle);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    pressure_sensor_event_handler, NULL);
+//    spl06_t *spl06 = spl06_init(event_loop_handle);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    pressure_sensor_event_handler, NULL);
+
+    // zw800 finger print sensor
+    zw800_config_t zw800_config = ZW800_CONFIG_DEFAULT();
+    zw800_init(&zw800_config, event_loop_handle);
 }

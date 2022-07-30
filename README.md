@@ -41,6 +41,11 @@ SPI LCD
 - IO11 MOSI
 - IO12 CLK
 
+ZW800
+- IO45 - TOUCH
+- IO48 - RX
+- IO47 - TX
+
 FREE
 - IO5
 - IO6
@@ -51,10 +56,6 @@ FREE
 - IO21
 - IO41
 - IO42
-- IO45
-- IO46
-- IO47
-- IO48
 
 ---
 - [lvgl](https://docs.lvgl.io/master/intro/index.html)
