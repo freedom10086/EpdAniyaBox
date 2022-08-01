@@ -19,6 +19,7 @@
 
 #include "common.h"
 #include "main_page.h"
+#include "test_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 
@@ -152,7 +153,8 @@ static void guiTask(void *pvParameter) {
             loop_cnt = 0;
         }
 
-        main_page_draw(epd_paint, loop_cnt);
+        // main_page_draw(epd_paint, loop_cnt);
+        test_page_draw(epd_paint, loop_cnt);
 
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);

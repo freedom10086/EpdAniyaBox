@@ -102,7 +102,7 @@ void ws2812_start(void) {
 
     // Build RGB pixels
     hue = 180 + start_rgb;
-    led_strip_hsv2rgb(hue, 100, 5, &red, &green, &blue);
+    led_strip_hsv2rgb(hue, 100, 2, &red, &green, &blue);
     led_strip_pixels[0] = green;
     led_strip_pixels[1] = blue;
     led_strip_pixels[2] = red;

@@ -116,7 +116,8 @@ void epd_paint_draw_pixel(epd_paint_t *epd_paint, int x, int y, int colored) {
  */
 void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_char, sFONT *font, int colored) {
     int i, j;
-    unsigned int char_offset = (ascii_char - font->start) * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+    unsigned int char_offset =
+            (ascii_char - font->start) * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
     const uint8_t *ptr = &font->table[char_offset];
 
     for (j = 0; j < font->Height; j++) {
@@ -134,22 +135,56 @@ void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_cha
     }
 }
 
+// 0xA1A1~0xFEFE
+void epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16_t font_char, sFONT *font, int colored) {
+    int i, j;
+    unsigned int char_offset =
+            (94 * (unsigned int) ((font_char & 0xff) - 0xa0 - 1) + ((font_char >> 8) - 0xa0 - 1))
+              * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+    const uint8_t *ptr = &font->table[char_offset];
+
+    for (j = 0; j < font->Height; j++) {
+        for (i = 0; i < font->Width; i++) {
+            if (*ptr & (0x80 >> (i % 8))) {
+                epd_paint_draw_pixel(epd_paint, x + i, y + j, colored);
+            }
+            if (i % 8 == 7) {
+                ptr++;
+            }
+        }
+        if (font->Width % 8 != 0) {
+            ptr++;
+        }
+    }
+}
+
+
 /**
 *  @brief: epd_paint displays a string on the frame buffer but not refresh
 */
 void epd_paint_draw_string_at(epd_paint_t *epd_paint, int x, int y, const char *text, sFONT *font, int colored) {
-    const char *p_text = text;
+    const uint8_t *p_text = (uint8_t *) text;
+    uint16_t chinese_text;
     unsigned int counter = 0;
     int refcolumn = x;
 
-    /* Send the string character by character on EPD */
     while (*p_text != 0) {
-        /* Display one character on EPD */
-        epd_paint_draw_char_at(epd_paint, refcolumn, y, *p_text, font, colored);
-        /* Decrement the column position by 16 */
-        refcolumn += font->Width;
-        /* Point on the next character */
-        p_text++;
+        if (font->is_chinese) {
+            if (*p_text < 128) {
+                epd_paint_draw_char_at(epd_paint, refcolumn, y, (char) *p_text, &Font16_2, colored);
+                p_text++;
+                refcolumn += Font16_2.Width;
+            } else {
+                chinese_text = ((*p_text) | *(p_text + 1) << 8);
+                epd_paint_draw_chinese_char_at(epd_paint, refcolumn, y, chinese_text, font, colored);
+                p_text += 2;
+                refcolumn += font->Width;
+            }
+        } else {
+            epd_paint_draw_char_at(epd_paint, refcolumn, y, (char) *p_text, font, colored);
+            p_text++;
+            refcolumn += font->Width;
+        }
         counter++;
     }
 }
