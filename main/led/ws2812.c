@@ -1,3 +1,5 @@
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+
 #include "ws2812.h"
 
 #include <string.h>
@@ -116,3 +118,5 @@ void ws2812_start(void) {
     // ESP_ERROR_CHECK(rmt_transmit(led_chan, led_encoder, led_strip_pixels, sizeof(led_strip_pixels), &tx_config));
     // vTaskDelay(pdMS_TO_TICKS(CHASE_SPEED_MS));
 }
+
+#endif

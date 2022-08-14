@@ -164,7 +164,7 @@ int auro_enroll(zw800_t *zw800_dev, uint16_t page_id) {
         uint8_t param2 = zw800_dev->buff[11];
 
         if (response != 0x00 && response != 0xFF) {
-            ESP_LOGW(TAG, "auto enroll failed, response: %x, param1: %x, param2: %x");
+            ESP_LOGW(TAG, "auto enroll failed, response: %x, param1: %x, param2: %x", response, stage, param2);
             return response;
         }
 
@@ -248,7 +248,7 @@ static void zw800_task_entry(void *arg) {
         zw800_write_cmd(zw800_dev, ZW800_CMD_SLEEP);
         response = zw800_read_response(zw800_dev);
         if (response != 0x00) {
-            ESP_LOGE(TAG, "enter sleep mode failed", response);
+            ESP_LOGE(TAG, "enter sleep mode failed %X", response);
         } else {
             gpio_isr_handler_add(zw800_dev->touch_pin, gpio_isr_handler, (void *) zw800_dev->touch_pin);
             ESP_LOGI(TAG, "zw800 enter sleep mode");

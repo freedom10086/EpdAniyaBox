@@ -8,6 +8,8 @@
 #include "esp_freertos_hooks.h"
 #include "freertos/semphr.h"
 #include "esp_system.h"
+#include "esp_chip_info.h"
+#include "esp_flash.h"
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
@@ -21,6 +23,7 @@
 #include "spl06.h"
 #include "lcd/display.h"
 #include "zw800.h"
+#include "sht31.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -82,7 +85,7 @@ pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 static void
 ble_csc_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
-                              void *event_data) {
+                             void *event_data) {
     ble_csc_data_t *data = NULL;
     switch (event_id) {
         case BLE_CSC_SENSOR_UPDATE:
@@ -124,6 +127,29 @@ ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
 void app_main() {
     // esp_log_level_set("*", ESP_LOG_WARN);
 
+    printf("Hello world!\n");
+
+    /* Print chip information */
+    esp_chip_info_t chip_info;
+    uint32_t flash_size;
+    esp_chip_info(&chip_info);
+    printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
+           CONFIG_IDF_TARGET,
+           chip_info.cores,
+           (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
+           (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
+
+    printf("silicon revision %d, ", chip_info.revision);
+    if (esp_flash_get_size(NULL, &flash_size) != ESP_OK) {
+        printf("Get flash size failed");
+        return;
+    }
+
+    printf("%uMB %s flash\n", flash_size / (1024 * 1024),
+           (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
+
+    printf("Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
+
     // create event loop
     esp_event_loop_args_t loop_args = {
             .queue_size = 16,
@@ -149,12 +175,12 @@ void app_main() {
     /* deinit NMEA parser library */
     // nmea_parser_deinit(nmea_hdl);
 
-    ws2812_start();
+    //ws2812_start();
 
     /**
      * lcd
      */
-    // display_init();
+    display_init();
 
     /**
      *  sd card
@@ -172,38 +198,19 @@ void app_main() {
 //                                    BIKE_BLE_CSC_SENSOR_EVENT, ESP_EVENT_ANY_ID,
 //                                    ble_csc_sensor_event_handler, NULL);
 
-    /*
-    // ms5611
-    ms5611_init();
-
-    float sumHeight = 0;
-    for (int i = 0; i < 10; ++i) {
-        if (i == 0) {
-            vTaskDelay(pdMS_TO_TICKS(2));
-            ms5611_read_temp_pre();
-            vTaskDelay(pdMS_TO_TICKS(20));
-            ms5611_read_temp();
-        }
-        ms5611_read_pressure_pre();
-        vTaskDelay(pdMS_TO_TICKS(25));
-        ms5611_read_pressure();
-
-        float height = ms5611_pressure_caculate();
-        ESP_LOGI(TAG, "ms5611 height: %f", height);
-
-        sumHeight += height;
-    }
-
-    ESP_LOGI(TAG, "avg height ms5611 height: %f", sumHeight / 10);
-
-    */
-
 //    spl06_t *spl06 = spl06_init(event_loop_handle);
 //    esp_event_handler_register_with(event_loop_handle,
 //                                    BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
 //                                    pressure_sensor_event_handler, NULL);
 
     // zw800 finger print sensor
-    zw800_config_t zw800_config = ZW800_CONFIG_DEFAULT();
-    zw800_init(&zw800_config, event_loop_handle);
+//    zw800_config_t zw800_config = ZW800_CONFIG_DEFAULT();
+//    zw800_init(&zw800_config, event_loop_handle);
+
+    /**
+     * sht31
+     */
+//    sht31_t *sht31 = sht31_init();
+//    sht31_read_temp_hum();
+//    ESP_LOGI(TAG, "sht31 temp %f, hum:%f", sht31->temp, sht31->hum);
 }

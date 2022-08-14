@@ -3,6 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+#ifdef CONFIG_IDF_TARGET_ESP32S3
 #pragma once
 
 #include <stdint.h>
@@ -33,4 +34,6 @@ esp_err_t rmt_new_led_strip_encoder(const led_strip_encoder_config_t *config, rm
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

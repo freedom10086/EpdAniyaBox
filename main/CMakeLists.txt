@@ -4,6 +4,7 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
         "led/led_strip_encoder.c" "led/ws2812.c"
         "pressure_common.c" "ms5611.c" "spl06.c"
         "zw800.c"
+        "sht31.c"
         "nmea_parser.c"
         "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/display.c"
         "main.c")

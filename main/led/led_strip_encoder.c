@@ -1,8 +1,4 @@
-/*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+#ifdef CONFIG_IDF_TARGET_ESP32S3
 
 #include "esp_check.h"
 #include "led_strip_encoder.h"
@@ -122,3 +118,5 @@ err:
     }
     return ret;
 }
+
+#endif

@@ -141,7 +141,7 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     if (main_page_data.heart_rate_valid) {
         sprintf(draw_text_buf, "%d", main_page_data.heart_rate);
     } else {
-        sprintf(draw_text_buf, "--", main_page_data.heart_rate);
+        sprintf(draw_text_buf, "--");
     }
     epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32_2, 0);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "b", &Font8, 0);

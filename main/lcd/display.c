@@ -29,14 +29,28 @@
  *********************/
 #define TAG "DISPLAY"
 
-#define TFT_SPI_HOST 1
-#define DISP_SPI_MISO CONFIG_DISP_SPI_MISO
+#if defined CONFIG_IDF_TARGET_ESP32C3
+#define TFT_SPI_HOST    SPI2_HOST
+
+#define DISP_SPI_MISO  -1
+#define DISP_SPI_MOSI  10
+#define DISP_SPI_CLK 4
+#define DISP_PIN_RST 7
+#define DISP_SPI_CS 5
+#define DISP_PIN_DC 6
+#define DISP_PIN_BUSY 8
+
+#elif CONFIG_IDF_TARGET_ESP32S3
+
+#define TFT_SPI_HOST SPI2_HOST
+#define DISP_SPI_MISO  CONFIG_DISP_SPI_MISO
 #define DISP_SPI_MOSI CONFIG_DISP_SPI_MOSI
 #define DISP_SPI_CLK CONFIG_DISP_SPI_CLK
 #define DISP_PIN_RST CONFIG_DISP_PIN_RST
 #define DISP_SPI_CS CONFIG_DISP_SPI_CS
 #define DISP_PIN_DC CONFIG_DISP_PIN_DC
 #define DISP_PIN_BUSY CONFIG_DISP_PIN_BUSY
+#endif
 
 #define DISP_BUFF_SIZE LCD_H_RES * LCD_V_RES
 
@@ -97,7 +111,7 @@ static void guiTask(void *pvParameter) {
 
     spi_driver_init(TFT_SPI_HOST,
                     DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
-                    DISP_BUFF_SIZE * sizeof(uint16_t), SPI_DMA_CH_AUTO);
+                    DISP_BUFF_SIZE * sizeof(uint8_t), SPI_DMA_CH_AUTO);
 
     ESP_LOGI(TAG, "Install panel IO");
     esp_lcd_panel_io_spi_config_t io_config = {
@@ -107,7 +121,7 @@ static void guiTask(void *pvParameter) {
             .lcd_cmd_bits = 8,
             .lcd_param_bits = 8,
             .spi_mode = 0,
-            .trans_queue_depth = 10,
+            .trans_queue_depth = 8,
             //.on_color_trans_done = ,
     };
 
@@ -130,6 +144,10 @@ static void guiTask(void *pvParameter) {
     // for test
     epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
     uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
+    if (!image) {
+        ESP_LOGE(TAG, "no memory for display driver");
+        return;
+    }
 
     epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
 
@@ -143,6 +161,7 @@ static void guiTask(void *pvParameter) {
 
     uint32_t loop_cnt = 0;
     while (1) {
+        ESP_LOGI(TAG, "draw loop %d", loop_cnt);
         loop_cnt += 1;
         if (loop_cnt % 100 == 0) {
             // request full fresh
@@ -153,13 +172,13 @@ static void guiTask(void *pvParameter) {
             loop_cnt = 0;
         }
 
-        // main_page_draw(epd_paint, loop_cnt);
-        test_page_draw(epd_paint, loop_cnt);
+        main_page_draw(epd_paint, loop_cnt);
+        //test_page_draw(epd_paint, loop_cnt);
 
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);
 
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(3000));
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
             // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`

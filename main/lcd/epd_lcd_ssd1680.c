@@ -92,12 +92,14 @@ unsigned char WF_PARTIAL_1IN54[159] =
 #define SSD1680_CMD_SET_RAM_X_ADDRESS_COUNTER       0x4E
 #define SSD1680_CMD_SET_RAM_Y_ADDRESS_COUNTER       0x4F
 
+int dc_gpio = -1;
 
 void lcd_spi_pre_transfer_callback(spi_transaction_t *t) {
-    int dc = (int) t->user;
-    gpio_set_level(CONFIG_DISP_PIN_DC, dc);
+    if (dc_gpio > 0) {
+        int dc = (int) t->user;
+        gpio_set_level(dc_gpio, dc);
+    }
 }
-
 
 static void lcd_spi_post_trans_callback(spi_transaction_t *trans) {
 }
@@ -154,6 +156,7 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
                 .pin_bit_mask = 1ULL << io_config->dc_gpio_num,
         };
         ESP_GOTO_ON_ERROR(gpio_config(&io_conf), err, TAG, "configure GPIO for D/C line failed");
+        dc_gpio = io_config->dc_gpio_num;
     }
 
     panel->_initial_refresh = true;
@@ -209,7 +212,7 @@ static esp_err_t lcd_cmd(lcd_ssd1680_panel_t *panel, const uint8_t cmd, const vo
 
 static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
     //• Wait BUSY Low
-    //ESP_LOGI(TAG, "ssd1680 wait for busy ...");
+    ESP_LOGI(TAG, "ssd1680 wait for busy ...");
     if (ssd1680->busy_gpio_num >= 0) {
         while (1) {
             if (gpio_get_level(ssd1680->busy_gpio_num)) {
