@@ -173,7 +173,7 @@ static void guiTask(void *pvParameter) {
         }
 
         main_page_draw(epd_paint, loop_cnt);
-        //test_page_draw(epd_paint, loop_cnt);
+        // test_page_draw(epd_paint, loop_cnt);
 
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);

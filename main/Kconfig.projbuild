@@ -13,6 +13,8 @@ menu "My Project Config"
                 bool "SPI_DISPLAY_SSD1680_2IN66"
             config SPI_DISPLAY_SSD1680_1IN54
                 bool "SPI_DISPLAY_SSD1680_1IN54"
+            config SPI_DISPLAY_SSD1680_1IN54_V1
+                bool "SPI_DISPLAY_SSD1680_1IN54_V1"
             config SPI_DISPLAY_ST7789
                 bool "SPI_DISPLAY_ST7789"
         endchoice

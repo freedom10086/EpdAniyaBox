@@ -75,7 +75,7 @@ pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         case SPL06_SENSOR_UPDATE:
             data = (spl06_data_t *) event_data;
             ESP_LOGI(TAG, "pressure: %.2f,temp: %.2f, altitude: %.2f", data->pressure, data->temp, data->altitude);
-            main_page_update_temperature(data->temp);
+            // main_page_update_temperature(data->temp);
             main_page_update_altitude(data->altitude);
             break;
         default:
@@ -115,6 +115,21 @@ ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
             data = (ble_hrm_data_t *) event_data;
             ESP_LOGI(TAG, "heart_rate: %d", data->heart_rate);
             main_page_update_heart_rate(data->heart_rate);
+            break;
+        default:
+            break;
+    }
+}
+
+static void
+ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                              void *event_data) {
+    sht31_data_t *data = NULL;
+    switch (event_id) {
+        case SHT31_SENSOR_UPDATE:
+            data = (sht31_data_t *) event_data;
+            ESP_LOGI(TAG, "temp: %f, hum: %f", data->temp, data->hum);
+            main_page_update_temp_hum(data->temp, data->hum);
             break;
         default:
             break;
@@ -210,7 +225,8 @@ void app_main() {
     /**
      * sht31
      */
-//    sht31_t *sht31 = sht31_init();
-//    sht31_read_temp_hum();
-//    ESP_LOGI(TAG, "sht31 temp %f, hum:%f", sht31->temp, sht31->hum);
+    sht31_t *sht31 = sht31_init(event_loop_handle);
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+                                    ble_temp_sensor_event_handler, NULL);
 }

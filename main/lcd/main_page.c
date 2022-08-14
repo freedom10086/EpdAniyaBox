@@ -79,11 +79,6 @@ static int draw_speed_area(epd_paint_t *epd_paint, int y) {
     return y;
 }
 
-void main_page_update_temperature(float temp) {
-    main_page_data.temperature_valid = true;
-    main_page_data.temperature = temp;
-}
-
 void main_page_update_altitude(float altitude) {
     main_page_data.altitude_valid = true;
     main_page_data.altitude = altitude;
@@ -102,6 +97,14 @@ void main_page_update_crank_cadence(float crank_cadence) {
 void main_page_update_heart_rate(uint16_t heart_rate) {
     main_page_data.heart_rate = heart_rate;
     main_page_data.heart_rate_valid = true;
+}
+
+void main_page_update_temp_hum(float temp, float hum) {
+    main_page_data.temperature = temp;
+    main_page_data.temperature_valid = true;
+
+    main_page_data.humility = hum;
+    main_page_data.humility_valid = true;
 }
 
 void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {

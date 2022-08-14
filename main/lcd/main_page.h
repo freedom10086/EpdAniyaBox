@@ -8,6 +8,9 @@ typedef struct {
     float temperature;
     bool temperature_valid;
 
+    float humility;
+    bool humility_valid;
+
     float altitude;
     bool altitude_valid;
 
@@ -23,8 +26,6 @@ typedef struct {
 
 void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt);
 
-void main_page_update_temperature(float temp);
-
 void main_page_update_altitude(float altitude);
 
 void main_page_update_speed(float speed);
@@ -32,5 +33,7 @@ void main_page_update_speed(float speed);
 void main_page_update_crank_cadence(float crank_cadence);
 
 void main_page_update_heart_rate(uint16_t heart_rate);
+
+void main_page_update_temp_hum(float temp, float hum);
 
 #endif

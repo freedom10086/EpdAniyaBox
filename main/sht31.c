@@ -5,6 +5,7 @@
 #include "esp_chip_info.h"
 #include "esp_flash.h"
 #include "esp_log.h"
+#include "esp_event.h"
 #include "driver/i2c.h"
 
 #include "sht31.h"
@@ -13,7 +14,7 @@
 #define I2C_MASTER_FREQ_HZ          400000
 #define I2C_MASTER_TX_BUF_DISABLE   0
 #define I2C_MASTER_RX_BUF_DISABLE   0
-#define I2C_MASTER_TIMEOUT_MS       500
+#define I2C_MASTER_TIMEOUT_MS       200
 
 #define SHT31_ADDR                 0x44
 #define SHT31_MEAS_HIGHREP_STRETCH 0x2C06 /**< Measurement High Repeatability with Clock Stretch Enabled */
@@ -22,19 +23,86 @@
 #define SHT31_MEAS_HIGHREP    0x2400 /**< Measurement High Repeatability with Clock Stretch Disabled */
 #define SHT31_MEAS_MEDREP      0x240B /**< Measurement Medium Repeatability with Clock Stretch Disabled */
 #define SHT31_MEAS_LOWREP   0x2416 /**< Measurement Low Repeatability with Clock Stretch Disabled */
+
+/**
+ * 16bit
+ * [0] - Write data checksum status
+        '0': checksum of last write transfer was correct
+ * [1] - Command status '0': last command executed successfully
+ * [3:2] - Reserved
+ * [4] System reset detected, '0': no reset detected since last ‘clear status register’ command
+ * [9:5] Reserved
+ * [10] T tracking alert, ‘0’ : no alert
+ * [11] RH tracking alert
+ * [12] Reserved
+ * [13] Heater status ‘0’ : Heater OFF
+ * [14] Reserved
+ * [15] Alert pending status, '0': no pending alerts
+  */
 #define SHT31_READSTATUS 0xF32D   /**< Read Out of Status Register */
 #define SHT31_CLEARSTATUS 0x3041  /**< Clear Status */
+
 #define SHT31_SOFTRESET 0x30A2    /**< Soft Reset */
 #define SHT31_HEATEREN 0x306D     /**< Heater Enable */
 #define SHT31_HEATERDIS 0x3066    /**< Heater Disable */
 #define SHT31_FETCH_DATA 0xE000
 
-#define SHT31_REG_HEATER_BIT 0x0d /**< Status Register Heater Bit */
+// Periodic Data Acquisition Mode
+// 0.5mps
+#define SHT31_PERIOD_MEAS_HALF_HIGHREP 0x2032
+#define SHT31_PERIOD_MEAS_HALF_MEDREP 0x2024
+#define SHT31_PERIOD_MEAS_HALF_LOWREP 0x202F
 
+// 1mps (1 measurements per second)
+#define SHT31_PERIOD_MEAS_1_HIGHREP 0x2130
+#define SHT31_PERIOD_MEAS_1_MEDREP 0x2126
+#define SHT31_PERIOD_MEAS_1_LOWREP 0x212D
+
+// 2mps (2 measurements per second)
+#define SHT31_PERIOD_MEAS_2_HIGHREP 0x2236
+#define SHT31_PERIOD_MEAS_2_MEDREP 0x2220
+#define SHT31_PERIOD_MEAS_2_LOWREP 0x222B
+
+// 4mps
+#define SHT31_PERIOD_MEAS_4_HIGHREP 0x2334
+#define SHT31_PERIOD_MEAS_4_MEDREP 0x2322
+#define SHT31_PERIOD_MEAS_4_LOWREP 0x2329
+
+// 10mps
+#define SHT31_PERIOD_MEAS_4_HIGHREP 0x2737
+#define SHT31_PERIOD_MEAS_4_MEDREP 0x2721
+#define SHT31_PERIOD_MEAS_4_LOWREP 0x272A
+
+#define SHT31_PEROID_MEAS_WITH_ART 0x2B32
+#define SHT31_STOP_PERIOD 0x3093
+/**
+ * No Clock Stretching
+ * When a command without clock stretching has been
+ * issued, the sensor responds to a read header with a not
+ * acknowledge (NACK), if no data is present.
+
+ * Clock Stretching
+ * When a command with clock stretching has been issued,
+ * the sensor responds to a read header with an ACK and
+ * subsequently pulls down the SCL line. The SCL line is
+ * pulled down until the measurement is complete. As soon
+ * as the measurement is complete, the sensor releases
+ * the SCL line and sends the measurement results
+ *
+ *
+ * Measurement duration
+ *                          Typ.    Max.
+ * Low repeatability        2.5     4ms
+ * Medium repeatability     4.5     6ms
+ * High repeatability       12.5    15ms
+ */
 
 static const char *TAG = "sht-31";
 
+ESP_EVENT_DEFINE_BASE(BIKE_TEMP_HUM_SENSOR_EVENT);
+
 sht31_t sht31;
+bool data_updated = false;
 
 /**
  * @brief i2c master initialization
@@ -109,19 +177,67 @@ static uint8_t crc8(const uint8_t *data, int len) {
     return crc;
 }
 
-sht31_t *sht31_init() {
+static void sht31_task_entry(void *arg) {
+    sht31_reset();
+    vTaskDelay(10);
+    uint8_t data[3];
+    i2c_read(SHT31_READSTATUS, data, 3);
+    if (data[2] != crc8(data, 2)) {
+        ESP_LOGW(TAG, "read status crc check failed!");
+    } else {
+        ESP_LOGI(TAG, "Status %X %X", data[0], data[1]);
+        ESP_LOGI(TAG, "HEAT Status %d", (data[0] >> 5) & 0x01);
+    }
+
+    i2c_write_cmd(SHT31_CLEARSTATUS);
+    vTaskDelay(10);
+
+    while (1) {
+        if (sht31_read_temp_hum()) {
+            //ESP_LOGI(TAG, "temp %f, hum:%f", sht31.data.temp, sht31.data.hum);
+        }
+
+        if (data_updated) {
+            esp_event_post_to(sht31.event_loop_hdl, BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_UPDATE,
+                              &sht31.data, sizeof(sht31_data_t), 100 / portTICK_PERIOD_MS);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(3000));
+    }
+}
+
+void sht31_reset() {
+    ESP_LOGI(TAG, "Reset Sht31...");
+    i2c_write_cmd(SHT31_SOFTRESET);
+    vTaskDelay(pdMS_TO_TICKS(2));
+}
+
+sht31_t *sht31_init(esp_event_loop_handle_t event_loop_hdl) {
     ESP_ERROR_CHECK(i2c_master_init());
     ESP_LOGI(TAG, "I2C initialized successfully");
 
-    uint8_t data[3];
-    i2c_read(SHT31_READSTATUS, data, 3);
-    ESP_LOGI(TAG, "Status %X %X", data[0], data[1]);
+    sht31.event_loop_hdl = event_loop_hdl;
+
+    /* Create NMEA Parser task */
+    BaseType_t err = xTaskCreate(
+            sht31_task_entry,
+            "sht31",
+            2048,
+            &sht31,
+            5,
+            NULL);
+    if (err != pdTRUE) {
+        ESP_LOGE(TAG, "create sht31 task failed");
+        return NULL;
+    }
 
     return &sht31;
 }
 
 bool sht31_read_temp_hum() {
     uint8_t readbuffer[6];
+    data_updated = false;
+
     i2c_write_cmd(SHT31_MEAS_HIGHREP);
     vTaskDelay(pdMS_TO_TICKS(20));
 
@@ -135,17 +251,27 @@ bool sht31_read_temp_hum() {
 
     sht31.data_valid = true;
 
-    int32_t stemp = (int32_t)(((uint32_t)readbuffer[0] << 8) | readbuffer[1]);
+    int32_t stemp = (int32_t) (((uint32_t) readbuffer[0] << 8) | readbuffer[1]);
+    if (stemp != sht31.raw_temp) {
+        data_updated = true;
+        sht31.raw_temp = stemp;
+    }
+
     // simplified (65536 instead of 65535) integer version of:
     // temp = (stemp * 175.0f) / 65535.0f - 45.0f;
     stemp = ((4375 * stemp) >> 14) - 4500;
-    sht31.temp = (float)stemp / 100.0f;
+    sht31.data.temp = (float) stemp / 100.0f;
 
-    uint32_t shum = ((uint32_t)readbuffer[3] << 8) | readbuffer[4];
+    uint32_t shum = ((uint32_t) readbuffer[3] << 8) | readbuffer[4];
+    if (shum != sht31.raw_hum) {
+        data_updated = true;
+        sht31.raw_hum = shum;
+    }
+
     // simplified (65536 instead of 65535) integer version of:
     // humidity = (shum * 100.0f) / 65535.0f;
     shum = (625 * shum) >> 12;
-    sht31.hum = (float)shum / 100.0f;
+    sht31.data.hum = (float) shum / 100.0f;
 
     return true;
 }
