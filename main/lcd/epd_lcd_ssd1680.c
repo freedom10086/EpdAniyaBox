@@ -228,11 +228,17 @@ static esp_err_t lcd_cmd(lcd_ssd1680_panel_t *panel, const uint8_t cmd, const vo
 
 static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
     //• Wait BUSY Low
-    ESP_LOGI(TAG, "ssd1680 wait for busy ...");
+    // ESP_LOGI(TAG, "ssd1680 wait for busy ...");
     if (ssd1680->busy_gpio_num >= 0) {
+        uint32_t wait_cnt = 0;
         while (1) {
             if (gpio_get_level(ssd1680->busy_gpio_num)) {
                 vTaskDelay(pdMS_TO_TICKS(5));
+                wait_cnt ++;
+                if (wait_cnt >= 200) {
+                    ESP_LOGI(TAG, "still wait for busy ...");
+                    wait_cnt = 0;
+                }
             } else {
                 break;
             }

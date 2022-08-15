@@ -178,7 +178,7 @@ static void guiTask(void *pvParameter) {
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);
 
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(30000));
         /* Try to take the semaphore, call lvgl related function on success */
         if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
             // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`

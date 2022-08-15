@@ -24,6 +24,8 @@
 #include "lcd/display.h"
 #include "zw800.h"
 #include "sht31.h"
+#include "key.h"
+#include "wifi/wifi_ap.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -33,11 +35,15 @@ static const char *TAG = "BIKE_MAIN";
 esp_event_loop_handle_t event_loop_handle;
 
 static void application_task(void *args) {
-    while (1) {
-        // ESP_LOGI(TAG, "application_task: running application task");
-        esp_event_loop_run(event_loop_handle, 100);
-        vTaskDelay(10);
+    while(1) {
+        esp_err_t err = esp_event_loop_run(event_loop_handle, portMAX_DELAY);
+        if (err != ESP_OK) {
+            break;
+        }
     }
+
+    ESP_LOGE(TAG, "suspended task for loop %p", event_loop_handle);
+    vTaskSuspend(NULL);
 }
 
 static void
@@ -191,6 +197,16 @@ void app_main() {
     // nmea_parser_deinit(nmea_hdl);
 
     //ws2812_start();
+
+    /**
+     * wifi ap
+     */
+    wifi_init_softap(event_loop_handle);
+
+    /**
+     * key
+     */
+     key_init();
 
     /**
      * lcd
