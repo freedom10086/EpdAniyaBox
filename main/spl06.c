@@ -486,7 +486,7 @@ static void read_coef_data(spl06_t *spl06) {
         }
     }
 
-    ESP_LOGI(TAG, "spl06 read COEF c0:%x c1:%x c00:%x c10:%x c01:%x c11:%x c20:%x c21:%x c30:%x",
+    ESP_LOGI(TAG, "spl06 read COEF c0:%x c1:%x c00:%lx c10:%lx c01:%x c11:%x c20:%x c21:%x c30:%x",
              c0, c1, c00, c10, c01, c11, c20, c21, c30);
 
     spl06 -> coef_load = true;

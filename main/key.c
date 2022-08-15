@@ -38,8 +38,8 @@ static void key_task_entry(void *arg) {
         uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex,
                                                                pdTRUE,
                                                                pdMS_TO_TICKS(5000));
-        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %d", ulNotificationValue);
-        if (ulNotificationValue == 1) {
+        //ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
+        if (ulNotificationValue == 1) { // may > 1 more data ws send
             /* The transmission ended as expected. */
             //gpio_isr_handler_remove(zw800_dev->touch_pin);
             ESP_LOGI(TAG, "key click detect...");

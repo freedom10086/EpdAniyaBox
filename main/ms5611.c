@@ -141,7 +141,7 @@ void ms5611_read_pressure() {
     uint8_t buff[3]= {0};
     i2c_read(ADC_Read, buff, 3);
     D[0] = (buff[0] << 16) + (buff[1] << 8) + buff[2];
-    ESP_LOGI(TAG, "ms5611 read pressure, raw:%x", D[0]);
+    ESP_LOGI(TAG, "ms5611 read pressure, raw:%lx", D[0]);
 }
 
 void ms5611_read_temp_pre() {
@@ -153,7 +153,7 @@ void ms5611_read_temp() {
     uint8_t buff[3]= {0};
     i2c_read(ADC_Read, buff, 3);
     D[1] = (buff[0] << 16) + (buff[1] << 8) + buff[2];
-    ESP_LOGI(TAG, "ms5611 read temp, raw:%x", D[1]);
+    ESP_LOGI(TAG, "ms5611 read temp, raw:%lx", D[1]);
 }
 
 float ms5611_get_pressure() {

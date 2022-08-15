@@ -166,10 +166,10 @@ void app_main() {
         return;
     }
 
-    printf("%uMB %s flash\n", flash_size / (1024 * 1024),
+    printf("%luMB %s flash\n", flash_size / (1024 * 1024),
            (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
 
-    printf("Minimum free heap size: %d bytes\n", esp_get_minimum_free_heap_size());
+    printf("Minimum free heap size: %ld bytes\n", esp_get_minimum_free_heap_size());
 
     // create event loop
     esp_event_loop_args_t loop_args = {
@@ -211,7 +211,7 @@ void app_main() {
     /**
      * lcd
      */
-    display_init();
+    // display_init();
 
     /**
      *  sd card
@@ -241,8 +241,8 @@ void app_main() {
     /**
      * sht31
      */
-    sht31_t *sht31 = sht31_init(event_loop_handle);
-    esp_event_handler_register_with(event_loop_handle,
-                                    BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_temp_sensor_event_handler, NULL);
+//    sht31_t *sht31 = sht31_init(event_loop_handle);
+//    esp_event_handler_register_with(event_loop_handle,
+//                                    BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
+//                                    ble_temp_sensor_event_handler, NULL);
 }

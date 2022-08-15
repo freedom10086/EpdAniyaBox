@@ -122,7 +122,7 @@ void ble_parse_csc_data(char *device_name, esp_ble_gattc_cb_param_t *p_data) {
         uint16_t last_wheel_revolutions_time = *((uint16_t *) p_data->notify.value);
         p_data->notify.value += 2;
 
-        ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %d, last time %d", device_name,  wheel_revolutions, last_wheel_revolutions_time);
+        ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %ld, last time %d", device_name,  wheel_revolutions, last_wheel_revolutions_time);
         on_wheel_measurement_received(wheel_revolutions, last_wheel_revolutions_time);
     }
 

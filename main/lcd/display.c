@@ -161,7 +161,7 @@ static void guiTask(void *pvParameter) {
 
     uint32_t loop_cnt = 0;
     while (1) {
-        ESP_LOGI(TAG, "draw loop %d", loop_cnt);
+        ESP_LOGI(TAG, "draw loop %ld", loop_cnt);
         loop_cnt += 1;
         if (loop_cnt % 100 == 0) {
             // request full fresh
