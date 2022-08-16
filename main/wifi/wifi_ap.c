@@ -41,6 +41,16 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     }
 }
 
+void print_current_ip_info(esp_netif_ip_info_t info_t) {
+    char buff[20];
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.ip.addr, buff, sizeof(buff));
+    ESP_LOGI(TAG, "current ip %s", buff);
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.gw.addr, buff, sizeof(buff));
+    ESP_LOGI(TAG, "current gw %s", buff);
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.netmask.addr, buff, sizeof(buff));
+    ESP_LOGI(TAG, "current msk %s", buff);
+}
+
 void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
@@ -50,38 +60,6 @@ void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
     }
     ESP_ERROR_CHECK(ret);
 
-    ESP_LOGI(TAG, "start WIFI_MODE_AP");
-    ESP_ERROR_CHECK(esp_netif_init());
-
-    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
-
-    esp_netif_ip_info_t info_t;
-    esp_netif_get_ip_info(ap_netif, &info_t);
-    char buff[20];
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.ip.addr, buff, sizeof(buff));
-    ESP_LOGI(TAG, "current ip %s", buff);
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.gw.addr, buff, sizeof(buff));
-    ESP_LOGI(TAG, "current gw %s", buff);
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.netmask.addr, buff, sizeof(buff));
-    ESP_LOGI(TAG, "current msk %s", buff);
-
-    char* ip= "192.168.5.241";
-    char* gateway = "192.168.5.1";
-    char* netmask = "255.255.255.0";
-    memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
-
-    if (ap_netif) {
-        ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif));
-        info_t.ip.addr = esp_ip4addr_aton((const char *)ip);
-        info_t.netmask.addr = esp_ip4addr_aton((const char *)netmask);
-        info_t.gw.addr = esp_ip4addr_aton((const char *)gateway);
-        esp_netif_set_ip_info(ap_netif, &info_t);
-        ESP_ERROR_CHECK(esp_netif_dhcps_start(ap_netif));
-    }
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
     // 接收系统事件只能用default loop
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
@@ -89,6 +67,35 @@ void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
                                                         &wifi_event_handler,
                                                         NULL,
                                                         NULL));
+
+    ESP_LOGI(TAG, "start WIFI_MODE_AP");
+    ESP_ERROR_CHECK(esp_netif_init());
+
+    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+
+    esp_netif_ip_info_t info_t;
+    esp_netif_get_ip_info(ap_netif, &info_t);
+    print_current_ip_info(info_t);
+
+//    // change ip
+//    char* ip= "192.168.5.241";
+//    char* gateway = "192.168.5.1";
+//    char* netmask = "255.255.255.0";
+//    memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
+//
+//    if (ap_netif) {
+//        ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif));
+//        info_t.ip.addr = esp_ip4addr_aton((const char *)ip);
+//        info_t.netmask.addr = esp_ip4addr_aton((const char *)netmask);
+//        info_t.gw.addr = esp_ip4addr_aton((const char *)gateway);
+//        esp_netif_set_ip_info(ap_netif, &info_t);
+//        ESP_ERROR_CHECK(esp_netif_dhcps_start(ap_netif));
+//
+//        print_current_ip_info(info_t);
+//    }
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
     wifi_config_t wifi_config = {
             .ap = {
@@ -98,6 +105,7 @@ void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
                     .password = WIFI_PASS,
                     .max_connection = MAX_STA_CONN,
                     .authmode = WIFI_AUTH_WPA2_PSK,
+                    .pairwise_cipher = WIFI_CIPHER_TYPE_CCMP
             },
     };
     if (strlen(WIFI_SSID) == 0) {
