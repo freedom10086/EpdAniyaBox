@@ -70,3 +70,14 @@ FREE
 ---
 - [lvgl](https://docs.lvgl.io/master/intro/index.html)
 - [esp-idf](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/get-started/index.html)
+
+### 分区表
+
+idf.py partition-table print
+
+
+idf.py erase-flash
+
+idf.py partition-table-flash: will flash the partition table with esptool.py.
+
+idf.py flash: Will flash everything including the partition table.

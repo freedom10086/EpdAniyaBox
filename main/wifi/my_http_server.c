@@ -22,6 +22,7 @@
 #include "esp_wifi.h"
 
 #include "my_http_server.h"
+#include "my_file_server_common.h"
 
 static const char *TAG = "http_server";
 
@@ -34,7 +35,9 @@ static const char *TAG = "http_server";
 #define OTA_BUFFSIZE 1024
 #define HASH_LEN 32 /* SHA-256 digest length */
 
+
 char buff[BUFFSIZE + 1] = {0};
+const char* file_server_base_path = "/data";
 
 typedef struct {
     httpd_handle_t server_hdl;
@@ -80,21 +83,21 @@ static esp_err_t favicon_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-static esp_err_t root_get_handler(httpd_req_t *req) {
-    httpd_resp_set_status(req, "307 Temporary Redirect");
-    httpd_resp_set_hdr(req, "Location", "/index.html");
-    httpd_resp_send(req, NULL, 0);  // Response body can be empty
-    return ESP_OK;
-}
+//static esp_err_t root_get_handler(httpd_req_t *req) {
+//    httpd_resp_set_status(req, "307 Temporary Redirect");
+//    httpd_resp_set_hdr(req, "Location", "/index.html");
+//    httpd_resp_send(req, NULL, 0);  // Response body can be empty
+//    return ESP_OK;
+//}
 
-static esp_err_t index_get_handler(httpd_req_t *req) {
-    extern const unsigned char index_html_start[] asm("_binary_index_html_start");
-    extern const unsigned char index_html_end[]   asm("_binary_index_html_end");
+static esp_err_t ota_get_handler(httpd_req_t *req) {
+    extern const unsigned char ota_html_start[] asm("_binary_ota_html_start");
+    extern const unsigned char ota_html_end[]   asm("_binary_ota_html_end");
 
-    const size_t response_size = (index_html_end - index_html_start);
+    const size_t response_size = (ota_html_end - ota_html_start);
 
     httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, (const char *) index_html_start, response_size);
+    httpd_resp_send(req, (const char *) ota_html_start, response_size);
     return ESP_OK;
 }
 
@@ -367,7 +370,6 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-
 esp_err_t my_http_server_start() {
     if (my_http_server) {
         ESP_LOGE(TAG, "Http server already started");
@@ -397,13 +399,13 @@ esp_err_t my_http_server_start() {
 
     my_http_server->server_hdl = server;
 
-    httpd_uri_t root = {
-            .uri       = "/",
-            .method    = HTTP_GET,
-            .handler   = root_get_handler,
-            .user_ctx  = my_http_server
-    };
-    httpd_register_uri_handler(server, &root);
+//    httpd_uri_t root = {
+//            .uri       = "/",
+//            .method    = HTTP_GET,
+//            .handler   = root_get_handler,
+//            .user_ctx  = my_http_server
+//    };
+//    httpd_register_uri_handler(server, &root);
 
     httpd_uri_t favicon = {
             .uri       = "/favicon.ico",
@@ -413,13 +415,13 @@ esp_err_t my_http_server_start() {
     };
     httpd_register_uri_handler(server, &favicon);
 
-    httpd_uri_t index = {
-            .uri       = "/index.html",
+    httpd_uri_t ota_get = {
+            .uri       = "/ota",
             .method    = HTTP_GET,
-            .handler   = index_get_handler,
+            .handler   = ota_get_handler,
             .user_ctx  = my_http_server
     };
-    httpd_register_uri_handler(server, &index);
+    httpd_register_uri_handler(server, &ota_get);
 
     httpd_uri_t ota = {
             .uri       = "/ota",
@@ -437,6 +439,9 @@ esp_err_t my_http_server_start() {
     };
     httpd_register_uri_handler(server, &version);
 
+    ESP_ERROR_CHECK(mount_storage(file_server_base_path));
+    register_file_server(file_server_base_path, server);
+
     return ESP_OK;
 }
 
@@ -445,6 +450,9 @@ esp_err_t my_http_server_stop() {
         ESP_LOGE(TAG, "Http server not started");
         return ESP_ERR_INVALID_STATE;
     }
+
+    unregister_file_server(my_http_server->server_hdl);
+    ESP_ERROR_CHECK(unmount_storage());
 
     httpd_stop(my_http_server->server_hdl);
     free(my_http_server);
