@@ -25,6 +25,7 @@
 #include "zw800.h"
 #include "sht31.h"
 #include "key.h"
+#include "battery.h"
 #include "wifi/wifi_ap.h"
 
 static const char *TAG = "BIKE_MAIN";
@@ -207,6 +208,11 @@ void app_main() {
      * key
      */
      key_init();
+
+     /**
+      * battery detect
+      */
+      battery_init();
 
     /**
      * lcd

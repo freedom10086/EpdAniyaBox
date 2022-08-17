@@ -76,6 +76,9 @@ void key_init() {
     };
     ESP_ERROR_CHECK(gpio_config(&io_config));
 
+    ESP_LOGI(TAG, "io %d, level %d", KEY_1_NUM, gpio_get_level(KEY_1_NUM));
+    ESP_LOGI(TAG, "io %d, level %d", KEY_2_NUM, gpio_get_level(KEY_2_NUM));
+
     //install gpio isr service
     gpio_install_isr_service(0);
     //hook isr handler for specific gpio pin

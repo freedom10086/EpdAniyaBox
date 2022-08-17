@@ -114,7 +114,7 @@ static esp_err_t current_version_handler(httpd_req_t *req) {
     char *p = json_response;
     *p++ = '{';
     p += sprintf(p, "\"ota_subtype\":%d,", running->subtype - ESP_PARTITION_SUBTYPE_APP_OTA_MIN);     //OTA分区
-    p += sprintf(p, "\"address\":%d,", running->address);               //地址
+    p += sprintf(p, "\"address\":%ld,", running->address);               //地址
     p += sprintf(p, "\"version\":\"%s\",", running_app_info.version);   //版本号
     p += sprintf(p, "\"date\":\"%s\",", running_app_info.date);         //日期
     p += sprintf(p, "\"time\":\"%s\"", running_app_info.time);          //时间
@@ -215,12 +215,12 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
 
     const esp_partition_t *configured = esp_ota_get_boot_partition();
     if (configured != running) {
-        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08x, but running from offset 0x%08x",
+        ESP_LOGW(TAG, "Configured OTA boot partition at offset 0x%08lx, but running from offset 0x%08lx",
                  configured->address, running->address);
         ESP_LOGW(TAG,
                  "(This can happen if either the OTA boot data or preferred boot image become corrupted somehow.)");
     }
-    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08x)",
+    ESP_LOGI(TAG, "Running partition type %d subtype %d (offset 0x%08lx)",
              running->type, running->subtype, running->address);
 
 #ifdef CONFIG_EXAMPLE_SKIP_COMMON_NAME_CHECK
@@ -229,7 +229,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
 
     update_partition = esp_ota_get_next_update_partition(NULL);
     assert(update_partition != NULL);
-    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%x",
+    ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%lx",
              update_partition->subtype, update_partition->address);
 
     int binary_file_length = 0;
