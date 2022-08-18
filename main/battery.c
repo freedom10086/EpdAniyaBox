@@ -17,9 +17,7 @@
 
 #define TAG "battery"
 
-/*---------------------------------------------------------------
-        ADC General Macros
----------------------------------------------------------------*/
+
 //ADC1 Channels
 #if CONFIG_IDF_TARGET_ESP32
 #define EXAMPLE_ADC1_CHAN0          ADC_CHANNEL_4
@@ -30,6 +28,16 @@
 #endif
 
 static int adc_raw;
+
+/**
+ * 2309 充电
+ * 2072 电池
+ * 1855 2小时20分钟
+ * 1650 3小时 开始尿崩
+ * 1488 3小时03分关机
+ * 16:24 开始充电
+ */
+
 static int voltage;
 static bool adc_calibration_init(adc_unit_t unit, adc_atten_t atten, adc_cali_handle_t *out_handle);
 static void adc_calibration_deinit(adc_cali_handle_t handle);
@@ -153,4 +161,12 @@ static void adc_calibration_deinit(adc_cali_handle_t handle)
     ESP_LOGI(TAG, "deregister %s calibration scheme", "Line Fitting");
     ESP_ERROR_CHECK(adc_cali_delete_scheme_line_fitting(handle));
 #endif
+}
+
+int battery_get_voltage() {
+    return voltage;
+}
+
+void battery_deinit() {
+
 }

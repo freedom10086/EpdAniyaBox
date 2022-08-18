@@ -8,7 +8,8 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
         "zw800.c"
         "sht31.c"
         "nmea_parser.c"
-        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/display.c"
+        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c"
+        "view/list_view.c"
         "main.c")
 
 idf_component_register(SRCS ${srcs}

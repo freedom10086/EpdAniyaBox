@@ -5,49 +5,101 @@
 #include <driver/gpio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
 
+#include "common.h"
 #include "key.h"
 
 
 #define TAG "keyboard"
 
+ESP_EVENT_DEFINE_BASE(BIKE_KEY_EVENT);
+
 const gpio_num_t KEY_1_NUM = 0;
 const gpio_num_t KEY_2_NUM = 9;
 
-static TaskHandle_t xTaskToNotify = NULL;
-const UBaseType_t xArrayIndex = 0;
+//static TaskHandle_t xTaskToNotify = NULL;
+//const UBaseType_t xArrayIndex = 0;
+
+static QueueHandle_t event_queue;
 
 static void IRAM_ATTR gpio_isr_handler(void *arg) {
     uint32_t gpio_num = (uint32_t) arg;
-    // xQueueSendFromISR(gpio_evt_queue, &gpio_num, NULL);
 
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//    task notification
+//    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//    /* Notify the task that the transmission is complete. */
+    // vTaskNotifyGiveIndexedFromISR(xTaskToNotify, xArrayIndex, &xHigherPriorityTaskWoken);
 
-    /* Notify the task that the transmission is complete. */
-    vTaskNotifyGiveIndexedFromISR(xTaskToNotify, xArrayIndex, &xHigherPriorityTaskWoken);
+    xQueueSendFromISR(event_queue, &gpio_num, NULL);
 }
 
 static void key_task_entry(void *arg) {
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
-    while (1) {
-        //if (!gpio_get_level(zw800_dev->touch_pin)) {
 
-        /* Wait to be notified that the transmission is complete.  Note the first parameter is pdTRUE, which has the effect of clearing
-        the task's notification value back to 0, making the notification value act like a binary (rather than a counting) semaphore.  */
-        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex,
-                                                               pdTRUE,
-                                                               pdMS_TO_TICKS(5000));
-        //ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
-        if (ulNotificationValue == 1) { // may > 1 more data ws send
-            /* The transmission ended as expected. */
-            //gpio_isr_handler_remove(zw800_dev->touch_pin);
-            ESP_LOGI(TAG, "key click detect...");
-        } else {
-            /* The call to ulTaskNotifyTake() timed out. */
+    //xTaskToNotify = xTaskGetCurrentTaskHandle();
+    event_queue = xQueueCreate(10, sizeof(gpio_num_t));
+
+//    while (1) {
+//
+//        //if (!gpio_get_level(zw800_dev->touch_pin)) {
+//
+//        /* Wait to be notified that the transmission is complete.  Note the first parameter is pdTRUE, which has the effect of clearing
+//        the task's notification value back to 0, making the notification value act like a binary (rather than a counting) semaphore.  */
+//        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex,
+//                                                               pdTRUE,
+//                                                               pdMS_TO_TICKS(30000));
+//        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
+//        if (ulNotificationValue > 0) { // may > 1 more data ws send
+//            /* The transmission ended as expected. */
+//            //gpio_isr_handler_remove(zw800_dev->touch_pin);
+//            ESP_LOGI(TAG, "key click detect...");
+//        } else {
+//            /* The call to ulTaskNotifyTake() timed out. */
+//        }
+//        vTaskDelay(pdMS_TO_TICKS(5));
+//    }
+
+    gpio_num_t clicked_gpio;
+    static uint32_t tick_count[2];
+    uint32_t tick_diff;
+    uint32_t time_diff_ms;
+
+    while (1) {
+        if (xQueueReceive(event_queue, &clicked_gpio, portMAX_DELAY)) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+            uint8_t index = KEY_1_NUM == clicked_gpio ? 0 : 1;
+
+            if (gpio_get_level(clicked_gpio) == 0) {
+                ESP_LOGI(TAG, "key %d click down detect...", clicked_gpio);
+            } else if (gpio_get_level(clicked_gpio) == 1) {
+                ESP_LOGI(TAG, "key %d click up detect...", clicked_gpio);
+                tick_diff = xTaskGetTickCount() - tick_count[index];
+                time_diff_ms = pdTICKS_TO_MS(tick_diff);
+
+                if (tick_diff > configTICK_RATE_HZ * 1.0) {
+                    ESP_LOGI(TAG, "key %d long press", clicked_gpio);
+                    esp_event_post_to(event_loop_handle,
+                                      BIKE_KEY_EVENT,
+                                      index == 0 ? KEY_1_LONG_CLICK : KEY_2_LONG_CLICK,
+                                      &time_diff_ms,
+                                      sizeof(time_diff_ms),
+                                      100 / portTICK_PERIOD_MS);
+                } else {
+                    ESP_LOGI(TAG, "key %d short press", clicked_gpio);
+                    esp_event_post_to(event_loop_handle,
+                                      BIKE_KEY_EVENT,
+                                      index == 0 ? KEY_1_SHORT_CLICK : KEY_2_SHORT_CLICK,
+                                      &time_diff_ms,
+                                      sizeof(time_diff_ms),
+                                      100 / portTICK_PERIOD_MS);
+                }
+            }
+
+            tick_count[index] = xTaskGetTickCount();
         }
-        vTaskDelay(pdMS_TO_TICKS(5));
     }
+
     vTaskDelete(NULL);
 }
 
@@ -70,14 +122,14 @@ void key_init() {
     gpio_config_t io_config = {
             .pin_bit_mask = (1ull << KEY_1_NUM) | (1ull << KEY_2_NUM),
             .mode = GPIO_MODE_INPUT,
-            .intr_type = GPIO_INTR_NEGEDGE,
+            .intr_type = GPIO_INTR_ANYEDGE,
             .pull_up_en = 1,
             .pull_down_en = 0,
     };
     ESP_ERROR_CHECK(gpio_config(&io_config));
 
-    ESP_LOGI(TAG, "io %d, level %d", KEY_1_NUM, gpio_get_level(KEY_1_NUM));
-    ESP_LOGI(TAG, "io %d, level %d", KEY_2_NUM, gpio_get_level(KEY_2_NUM));
+    //ESP_LOGI(TAG, "io %d, level %d", KEY_1_NUM, gpio_get_level(KEY_1_NUM));
+    //ESP_LOGI(TAG, "io %d, level %d", KEY_2_NUM, gpio_get_level(KEY_2_NUM));
 
     //install gpio isr service
     gpio_install_isr_service(0);

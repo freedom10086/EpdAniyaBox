@@ -21,6 +21,7 @@
 #include "esp_http_server.h"
 #include "esp_wifi.h"
 
+#include "battery.h"
 #include "my_http_server.h"
 #include "my_file_server_common.h"
 
@@ -43,7 +44,7 @@ typedef struct {
     httpd_handle_t server_hdl;
 } http_server_t;
 
-static http_server_t *my_http_server = NULL;
+http_server_t *my_http_server = NULL;
 
 
 /* Copies the full path into destination buffer and returns
@@ -118,6 +119,26 @@ static esp_err_t current_version_handler(httpd_req_t *req) {
     p += sprintf(p, "\"version\":\"%s\",", running_app_info.version);   //版本号
     p += sprintf(p, "\"date\":\"%s\",", running_app_info.date);         //日期
     p += sprintf(p, "\"time\":\"%s\"", running_app_info.time);          //时间
+    *p++ = '}';
+    *p++ = 0;
+
+    httpd_resp_set_type(req, "application/json");       // 设置http响应类型
+    return httpd_resp_send(req, json_response, strlen(json_response));
+}
+
+static esp_err_t device_info_handler(httpd_req_t *req) {
+    httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");        //跨域传输协议
+
+    static char json_response[1024];
+    char *p = json_response;
+
+    wifi_ps_type_t wifi_ps_type;
+    esp_wifi_get_ps(&wifi_ps_type);
+
+    *p++ = '{';
+    p += sprintf(p, "\"battery\":%d,", battery_get_voltage());
+    p += sprintf(p, "\"wifi_ps_mode\":%d,", wifi_ps_type);
+    p += sprintf(p, "\"message\":\"%s\"", "hello");
     *p++ = '}';
     *p++ = 0;
 
@@ -439,6 +460,14 @@ esp_err_t my_http_server_start() {
     };
     httpd_register_uri_handler(server, &version);
 
+    httpd_uri_t info = {
+            .uri       = "/info",
+            .method    = HTTP_GET,
+            .handler   = device_info_handler,
+            .user_ctx  = my_http_server
+    };
+    httpd_register_uri_handler(server, &info);
+
     ESP_ERROR_CHECK(mount_storage(file_server_base_path));
     register_file_server(file_server_base_path, server);
 
@@ -446,15 +475,16 @@ esp_err_t my_http_server_start() {
 }
 
 esp_err_t my_http_server_stop() {
-    if (!my_http_server) {
+    if (my_http_server == NULL) {
         ESP_LOGE(TAG, "Http server not started");
         return ESP_ERR_INVALID_STATE;
     }
 
     unregister_file_server(my_http_server->server_hdl);
-    ESP_ERROR_CHECK(unmount_storage());
+    unmount_storage();
 
     httpd_stop(my_http_server->server_hdl);
+
     free(my_http_server);
     my_http_server = NULL;
 

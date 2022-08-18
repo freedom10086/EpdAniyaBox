@@ -34,7 +34,7 @@
 #define ROTATE_270          3
 
 // Color inverse. 1 or 0 = set or reset a bit if set a colored pixel
-#define IF_INVERT_COLOR     1
+#define IF_INVERT_COLOR     0
 
 #include "fonts.h"
 
@@ -50,6 +50,10 @@ void epd_paint_init(epd_paint_t *epd, unsigned char *image, int width, int heigh
 void epd_paint_deinit(epd_paint_t *epd_paint);
 
 void epd_paint_clear(epd_paint_t *epd_paint, int colored);
+
+void epd_paint_clear_range(epd_paint_t *epd_paint, int start_x, int start_y, int width, int height, int colored);
+
+void epd_paint_reverse_range(epd_paint_t *epd_paint, int start_x, int start_y, int width, int height);
 
 void epd_paint_draw_absolute_pixel(epd_paint_t *epd_paint, int x, int y, int colored);
 

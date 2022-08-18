@@ -19,6 +19,8 @@
 #define MAX_STA_CONN   CONFIG_MAX_STA_CONN
 
 static const char *TAG = "wifi_softAP";
+esp_netif_t *ap_netif = NULL;
+esp_event_handler_instance_t context = NULL;
 
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
@@ -43,15 +45,15 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
 
 void print_current_ip_info(esp_netif_ip_info_t info_t) {
     char buff[20];
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.ip.addr, buff, sizeof(buff));
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *) &info_t.ip.addr, buff, sizeof(buff));
     ESP_LOGI(TAG, "current ip %s", buff);
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.gw.addr, buff, sizeof(buff));
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *) &info_t.gw.addr, buff, sizeof(buff));
     ESP_LOGI(TAG, "current gw %s", buff);
-    esp_ip4addr_ntoa((const esp_ip4_addr_t *)&info_t.netmask.addr, buff, sizeof(buff));
+    esp_ip4addr_ntoa((const esp_ip4_addr_t *) &info_t.netmask.addr, buff, sizeof(buff));
     ESP_LOGI(TAG, "current msk %s", buff);
 }
 
-void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
+void wifi_init_softap() {
     //Initialize NVS
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
@@ -61,17 +63,17 @@ void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
     ESP_ERROR_CHECK(ret);
 
     // 接收系统事件只能用default loop
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_event_loop_create_default();
     ESP_ERROR_CHECK(esp_event_handler_instance_register(WIFI_EVENT,
                                                         ESP_EVENT_ANY_ID,
                                                         &wifi_event_handler,
                                                         NULL,
-                                                        NULL));
+                                                        &context));
 
     ESP_LOGI(TAG, "start WIFI_MODE_AP");
     ESP_ERROR_CHECK(esp_netif_init());
 
-    esp_netif_t *ap_netif = esp_netif_create_default_wifi_ap();
+    ap_netif = esp_netif_create_default_wifi_ap();
 
     esp_netif_ip_info_t info_t;
     esp_netif_get_ip_info(ap_netif, &info_t);
@@ -116,12 +118,26 @@ void wifi_init_softap(esp_event_loop_handle_t event_loop_hdl) {
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
+
     ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
              WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
 }
 
 void wifi_deinit_softap() {
-    esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event_handler);
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_NULL));
     ESP_ERROR_CHECK(esp_wifi_stop());
-    esp_wifi_deinit();
+    ESP_ERROR_CHECK(esp_wifi_deinit());
+
+    // ESP_ERROR_CHECK(esp_netif_deinit());
+    esp_netif_destroy_default_wifi(ap_netif);
+    //esp_netif_destroy(ap_netif);
+
+    if (context != NULL) {
+        esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, context);
+        ESP_LOGI(TAG, "unregister wifi event");
+        esp_event_loop_delete_default();
+    }
+
+    ESP_LOGI(TAG, "stop wifi soft ap...");
 }

@@ -27,6 +27,7 @@
 #include "key.h"
 #include "battery.h"
 #include "wifi/wifi_ap.h"
+#include "common.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -36,7 +37,7 @@ static const char *TAG = "BIKE_MAIN";
 esp_event_loop_handle_t event_loop_handle;
 
 static void application_task(void *args) {
-    while(1) {
+    while (1) {
         esp_err_t err = esp_event_loop_run(event_loop_handle, portMAX_DELAY);
         if (err != ESP_OK) {
             break;
@@ -202,22 +203,22 @@ void app_main() {
     /**
      * wifi ap
      */
-    wifi_init_softap(event_loop_handle);
+    // wifi_init_softap(event_loop_handle);
 
     /**
      * key
      */
-     key_init();
+    key_init(event_loop_handle);
 
-     /**
-      * battery detect
-      */
-      battery_init();
+    /**
+     * battery detect
+     */
+    battery_init();
 
     /**
      * lcd
      */
-    // display_init();
+    display_init(event_loop_handle);
 
     /**
      *  sd card

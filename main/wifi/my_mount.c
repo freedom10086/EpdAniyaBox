@@ -133,7 +133,8 @@ esp_err_t mount_storage(const char *base_path) {
         return ret;
     }
 
-    ESP_LOGI(TAG, "Partition size: total: %dByte, %dKB used: %dByte %dKB", total, total / 1024, used, used / 1024);
+    ESP_LOGI(TAG, "Partition size: total: %dByte, %dKB used: %dByte %dKB",
+             total, total / 1024, used, used / 1024);
 
     // Check consistency of reported partiton size info.
     if (used > total) {
@@ -157,14 +158,9 @@ esp_err_t mount_storage(const char *base_path) {
 #endif // !CONFIG_EXAMPLE_MOUNT_SD_CARD
 
 esp_err_t unmount_storage() {
-//    if (mounted_partition_label) {
-//        // All done, unmount partition and disable SPIFFS
-//        esp_err_t err = esp_vfs_spiffs_unregister(mounted_partition_label);
-//        ESP_LOGI(TAG, "SPIFFS unmounted");
-//        free(mounted_partition_label);
-//        return err;
-//    }
-
-    return ESP_OK;
+    // All done, unmount partition and disable SPIFFS
+    esp_err_t err = esp_vfs_spiffs_unregister(NULL);
+    ESP_LOGI(TAG, "SPIFFS unmounted");
+    return err;
 }
 

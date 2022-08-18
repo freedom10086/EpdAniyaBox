@@ -20,9 +20,11 @@
 #include "common.h"
 #include "main_page.h"
 #include "test_page.h"
+#include "info_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
-
+#include "key.h"
+#include "display.h"
 
 /*********************
  *      DEFINES
@@ -54,16 +56,32 @@
 
 #define DISP_BUFF_SIZE LCD_H_RES * LCD_V_RES
 
+ESP_EVENT_DEFINE_BASE(BIKE_REQUEST_UPDATE_DISPLAY_EVENT);
+
 /**********************
  *  STATIC PROTOTYPES
  **********************/
 static void guiTask(void *pvParameter);
 
+static TaskHandle_t xTaskToNotify = NULL;
+const UBaseType_t xArrayIndex = 0;
 
-/* Creates a semaphore to handle concurrent call to lvgl stuff
- * If you wish to call *any* lvgl function from other threads/tasks
- * you should lock on the very same semaphore! */
-SemaphoreHandle_t xGuiSemaphore;
+static uint8_t current_page_index = 1;
+static page_inst_t pages[3] = {
+        [0] = {
+                .page_name = "main_page",
+                .draw_cb = main_page_draw,
+        },
+        [1] = {
+                .page_name = "info_page",
+                .draw_cb = info_page_draw,
+                .key_click_cb = info_page_key_click,
+        },
+        [2] = {
+                .page_name = "test_page",
+                .draw_cb = test_page_draw,
+        }
+};
 
 bool spi_driver_init(int host,
                      int miso_pin, int mosi_pin, int sclk_pin,
@@ -104,10 +122,19 @@ bool spi_driver_init(int host,
     return ESP_OK != ret;
 }
 
+void switch_page() {
+
+}
+
+void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+    page_inst_t current_page = pages[current_page_index];
+    current_page.draw_cb(epd_paint, loop_cnt);
+}
+
 static void guiTask(void *pvParameter) {
 
     (void) pvParameter;
-    xGuiSemaphore = xSemaphoreCreateMutex();
+    xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     spi_driver_init(TFT_SPI_HOST,
                     DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
@@ -151,7 +178,7 @@ static void guiTask(void *pvParameter) {
 
     epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
 
-    epd_paint_clear(epd_paint, 1);
+    epd_paint_clear(epd_paint, 0);
     panel_ssd1680_clear_display(&panel, 0xff);
 
     //panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
@@ -160,30 +187,37 @@ static void guiTask(void *pvParameter) {
     panel_ssd1680_init_partial(&panel);
 
     uint32_t loop_cnt = 0;
+    static uint32_t last_full_refresh_tick;
+    static uint32_t current_tick;
+
     while (1) {
         ESP_LOGI(TAG, "draw loop %ld", loop_cnt);
         loop_cnt += 1;
-        if (loop_cnt % 100 == 0) {
+        current_tick = xTaskGetTickCount();
+
+        if (loop_cnt % 20 == 0 || current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) {
             // request full fresh
             panel_ssd1680_init_full(&panel);
             panel_ssd1680_clear_display(&panel, 0xff);
 
             panel_ssd1680_init_partial(&panel);
-            loop_cnt = 0;
+            last_full_refresh_tick = current_tick;
         }
 
-        main_page_draw(epd_paint, loop_cnt);
-        // test_page_draw(epd_paint, loop_cnt);
+        draw_page(epd_paint, loop_cnt);
 
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);
 
-        vTaskDelay(pdMS_TO_TICKS(30000));
-        /* Try to take the semaphore, call lvgl related function on success */
-        if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY)) {
-            // The task running lv_timer_handler should have lower priority than that running `lv_tick_inc`
-            xSemaphoreGive(xGuiSemaphore);
+        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex, pdTRUE, pdMS_TO_TICKS(30000));
+        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
+        if (ulNotificationValue > 0) { // may > 1 more data ws send
+            /* The transmission ended as expected. */
+            //gpio_isr_handler_remove(zw800_dev->touch_pin);
+        } else {
+            /* The call to ulTaskNotifyTake() timed out. */
         }
+        // vTaskDelay(pdTICKS_TO_MS(30000));
     }
 
     panel_ssd1680_sleep(&panel);
@@ -194,10 +228,45 @@ static void guiTask(void *pvParameter) {
     vTaskDelete(NULL);
 }
 
+void request_display_update_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                                    void *event_data) {
+    if (BIKE_REQUEST_UPDATE_DISPLAY_EVENT == event_base) {
+        ESP_LOGI(TAG, "request for update...");
+        int *full_update = (int *) event_data;
+        xTaskGenericNotify(xTaskToNotify, xArrayIndex, *full_update,
+                           eNoAction, NULL);
+    }
+}
+
+static void key_click_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
+                                    void *event_data) {
+    ESP_LOGI(TAG, "rev key click event %ld", event_id);
+    switch (event_id) {
+        case KEY_1_SHORT_CLICK:
+            break;
+        case KEY_2_SHORT_CLICK:
+            break;
+        default:
+            break;
+    }
+    // if not handle passed to view
+    page_inst_t current_page = pages[current_page_index];
+    if (current_page.key_click_cb) {
+        current_page.key_click_cb(event_id);
+    }
+}
+
 void display_init() {
-    /* If you want to use a task to create the graphic, you NEED to create a Pinned task
-         * Otherwise there can be problem such as memory corruption and so on.
-         * NOTE: When not using Wi-Fi nor Bluetooth you can pin the guiTask to core 0 */
     xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
+
+    // key click event
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_KEY_EVENT, ESP_EVENT_ANY_ID,
+                                    key_click_event_handler, NULL);
+
+    // update display
+    esp_event_handler_register_with(event_loop_handle,
+                                    BIKE_REQUEST_UPDATE_DISPLAY_EVENT, ESP_EVENT_ANY_ID,
+                                    request_display_update_handler, NULL);
 }
 

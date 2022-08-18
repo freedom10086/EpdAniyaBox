@@ -29,8 +29,9 @@
 #define TAG "test-page"
 
 void test_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+    epd_paint_clear(epd_paint, 0);
     //你好世界！ gbk encode
     // https://www.qqxiuzi.cn/bianma/zifuji.php
     uint8_t data[] = {0xC4, 0xE3, 0xBA, 0xC3, 0xCA, 0xC0, 0xBD, 0xE7, 0xA3, 0xA1};
-    epd_paint_draw_string_at(epd_paint, 4, 4, (char *) data, &Font_HZK16, 0);
+    epd_paint_draw_string_at(epd_paint, 4, 4, (char *) data, &Font_HZK16, 1);
 }

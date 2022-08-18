@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "epdpaint.h"
+#include "common.h"
 
 void epd_paint_init(epd_paint_t *epd_paint, unsigned char *image, int width, int height) {
     epd_paint->rotate = ROTATE_0;
@@ -48,6 +49,26 @@ void epd_paint_clear(epd_paint_t *epd_paint, int colored) {
     for (int x = 0; x < epd_paint->width; x++) {
         for (int y = 0; y < epd_paint->height; y++) {
             epd_paint_draw_absolute_pixel(epd_paint, x, y, colored);
+        }
+    }
+}
+
+void epd_paint_clear_range(epd_paint_t *epd_paint, int start_x, int start_y, int width, int height, int colored) {
+    for (int x = start_x; x < min(start_x + width, epd_paint->width); x++) {
+        for (int y = start_y; y < min(start_y + height, epd_paint->height); y++) {
+            epd_paint_draw_absolute_pixel(epd_paint, x, y, colored);
+        }
+    }
+}
+
+void epd_paint_reverse_range(epd_paint_t *epd_paint, int start_x, int start_y, int width, int height) {
+    for (int x = start_x; x < min(start_x + width, epd_paint->width); x++) {
+        for (int y = start_y; y < min(start_y + height, epd_paint->height); y++) {
+            if (epd_paint->image[(x + y * epd_paint->width) / 8] & (0x80 >> (x % 8))) { // bit is 1
+                epd_paint_draw_absolute_pixel(epd_paint, x, y, 1);
+            } else {
+                epd_paint_draw_absolute_pixel(epd_paint, x, y, 0);
+            }
         }
     }
 }
@@ -136,11 +157,12 @@ void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_cha
 }
 
 // 0xA1A1~0xFEFE
-void epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16_t font_char, sFONT *font, int colored) {
+void
+epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16_t font_char, sFONT *font, int colored) {
     int i, j;
     unsigned int char_offset =
             (94 * (unsigned int) ((font_char & 0xff) - 0xa0 - 1) + ((font_char >> 8) - 0xa0 - 1))
-              * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+            * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
     const uint8_t *ptr = &font->table[char_offset];
 
     for (j = 0; j < font->Height; j++) {
