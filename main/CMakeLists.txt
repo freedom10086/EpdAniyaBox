@@ -1,4 +1,6 @@
-set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font20.c" "lcd/font24.c" "lcd/font20_2.c" "lcd/font32.c" "lcd/font32_2.c" "lcd/font36.c" "lcd/epdpaint.c" "lcd/font_hzk16.c"
+set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font20.c" "lcd/font24.c"
+        "lcd/font32.c" "lcd/font32.c" "lcd/font36.c" "lcd/epdpaint.c" "lcd/font_hzk16.c"
+        "lcd/decode_image.c" "lcd/bmp.c"
         "tools/kalman_filter.c" "tools/encode.c"
         "battery.c" "key.c"
         "wifi/wifi_ap.c" "wifi/my_http_server.c" "wifi/my_http_file_server.c" "wifi/my_mount.c"
@@ -15,4 +17,5 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
 idf_component_register(SRCS ${srcs}
         EMBED_FILES "lcd/HZK16.bin"
         EMBED_FILES "static/favicon.ico" "static/ota.html" "static/upload_script.html"
+        EMBED_FILES "static/aniya_200.bmp" "static/aniya_200_1.bmp"
         INCLUDE_DIRS ".")

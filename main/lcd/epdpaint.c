@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "epdpaint.h"
+#include "bmp.h"
 #include "common.h"
 
 void epd_paint_init(epd_paint_t *epd_paint, unsigned char *image, int width, int height) {
@@ -338,6 +339,22 @@ void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radi
             err += ++x_pos * 2 + 1;
         }
     } while (x_pos <= 0);
+}
+
+void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, unsigned char *bmp_data,
+                           int colored) {
+    // Since an adress must be passed to fread, create a variable!
+    uint16_t magic = ((uint16_t *) bmp_data)[0];
+    bmp_header *bmpHeader = (bmp_header *) (bmp_data + sizeof(magic));
+
+    if (magic != BMP_MAGIC) {
+        // not valid bmp pic just draw rec
+        epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
+        epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
+        epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
+    } else {
+
+    }
 }
 
 /* END OF FILE */

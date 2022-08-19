@@ -28,6 +28,8 @@
 #include "battery.h"
 #include "wifi/wifi_ap.h"
 #include "common.h"
+#include "lcd/bmp.h"
+#include "static/static.h"
 
 static const char *TAG = "BIKE_MAIN";
 
@@ -144,6 +146,17 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
     }
 }
 
+void testBmp() {
+    bmp_header *bmpHeader = (bmp_header *) (aniya_200_1_bmp_start);
+    if (bmpHeader->bfType != BMP_MAGIC) {
+        ESP_LOGE(TAG, "not a bmp file %X %X", ((uint16_t*)aniya_200_1_bmp_start)[0], bmpHeader->bfType);
+    } else {
+        ESP_LOGI(TAG, "bfSize = %ld, bfOffBits = %ld, biSize = %ld, biWidth = %ld, biHeight = %ld",
+                 bmpHeader->bfSize, bmpHeader->bfOffBits, bmpHeader->biSize,
+                 bmpHeader->biWidth, bmpHeader->biHeight);
+    }
+}
+
 /**********************
  *   APPLICATION MAIN
  **********************/
@@ -200,15 +213,17 @@ void app_main() {
 
     //ws2812_start();
 
+    testBmp();
+
     /**
      * wifi ap
      */
-    // wifi_init_softap(event_loop_handle);
+    // wifi_init_softap();
 
     /**
      * key
      */
-    key_init(event_loop_handle);
+    key_init();
 
     /**
      * battery detect
@@ -218,7 +233,7 @@ void app_main() {
     /**
      * lcd
      */
-    display_init(event_loop_handle);
+    // display_init();
 
     /**
      *  sd card

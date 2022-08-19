@@ -145,7 +145,7 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else {
         sprintf(draw_text_buf, "--");
     }
-    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "b", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 1);
@@ -156,7 +156,7 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else {
         sprintf(draw_text_buf, "0.0");
     }
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, draw_text_buf, &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, draw_text_buf, &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "r", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "p", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 1);
@@ -166,12 +166,12 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 
     // time and distance
     y += 4;
-    epd_paint_draw_string_at(epd_paint, 4, y, "1:27", &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, 4, y, "1:27", &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 6, "m", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + Font8.Height + 6, "i", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 6, "n", &Font8, 1);
 
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "18.6", &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "18.6", &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "k", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "m", &Font8, 1);
 
@@ -185,11 +185,11 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else {
         sprintf(draw_text_buf, "--");
     }
-    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, 4, y, draw_text_buf, &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 - Font8.Width - 4, y + 2 * Font8.Height + 8, "m", &Font8, 1);
 
     // degree
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "3.2", &Font32_2, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 4, y, "3.2", &Font32, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 6, "d", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 6, "e", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 2 * Font8.Height + 6, "g", &Font8, 1);

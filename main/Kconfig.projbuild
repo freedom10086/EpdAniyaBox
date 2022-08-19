@@ -2,15 +2,11 @@ menu "My Project Config"
 
     menu "LCD Config"
         comment "config spi display stuff."
-
-        choice
-            default SPI_DISPLAY_SSD1680_1IN54
+        choice SPI_DISPLAY_TYPE
             prompt "LCD Display Type: "
+            default SPI_DISPLAY_SSD1680_1IN54
             help
                   Select the display driver type.
-
-            config SPI_DISPLAY_SSD1680_2IN66
-                bool "SPI_DISPLAY_SSD1680_2IN66"
             config SPI_DISPLAY_SSD1680_1IN54
                 bool "SPI_DISPLAY_SSD1680_1IN54"
             config SPI_DISPLAY_SSD1680_1IN54_V1
@@ -21,7 +17,8 @@ menu "My Project Config"
 
         config DISP_SPI_MOSI
             int "GPIO for MOSI (Master Out Slave In)"
-            default 11
+            default 10 if IDF_TARGET_ESP32C3
+            default 11 if !IDF_TARGET_ESP32C3
 
         config DISP_SPI_MISO
             int "GPIO for MISO (Master In Slave Out)"
@@ -32,28 +29,32 @@ menu "My Project Config"
 
         config DISP_SPI_CLK
             int "GPIO for CLK (SCK / Serial Clock)"
-            default 12
+            default 4 if IDF_TARGET_ESP32C3
+            default 12 if !IDF_TARGET_ESP32C3
 
             help
                 Configure the display CLK pin here.
 
         config DISP_SPI_CS
             int "GPIO for CS (Slave Select)"
-            default 10
+            default 5 if IDF_TARGET_ESP32C3
+            default 10 if !IDF_TARGET_ESP32C3
 
             help
                 Configure the display CS pin here.
 
         config DISP_PIN_DC
             int "GPIO for DC (Data / Command)"
-            default 9
+            default 6 if IDF_TARGET_ESP32C3
+            default 9 if !IDF_TARGET_ESP32C3
 
             help
                 Configure the display DC pin here.
 
         config DISP_PIN_RST
             int "GPIO for Reset"
-            default 1
+            default 7 if IDF_TARGET_ESP32C3
+            default 1 if !IDF_TARGET_ESP32C3
 
             help
                 Configure the display Reset pin here.
@@ -67,9 +68,10 @@ menu "My Project Config"
                 Configure the display backlight pin here.
 
         config DISP_PIN_BUSY
-            depends on SPI_DISPLAY_SSD1680_2IN66 || SPI_DISPLAY_SSD1680_1IN54
+            depends on SPI_DISPLAY_SSD1680_1IN54 || SPI_DISPLAY_SSD1680_1IN54_V1
             int "GPIO for Busy"
-            default 2
+            default 8 if IDF_TARGET_ESP32C3
+            default 2 if !IDF_TARGET_ESP32C3
 
             help
                 Configure the display Busy pin here.
