@@ -37,6 +37,7 @@
 #define IF_INVERT_COLOR     0
 
 #include "fonts.h"
+#include "bmp.h"
 
 typedef struct {
     unsigned char *image;
@@ -79,6 +80,6 @@ void epd_paint_draw_circle(epd_paint_t *epd_paint, int x, int y, int radius, int
 
 void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radius, int colored);
 
-void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, unsigned char *bmp_data, int colored);
+void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, uint8_t *bmp_data, uint16_t data_size, int colored);
 
 #endif

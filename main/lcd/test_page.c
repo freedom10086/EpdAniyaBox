@@ -17,9 +17,9 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
-#include "common.h"
+#include "bike_common.h"
 #include "test_page.h"
-#include "tools/encode.h"9
+#include "tools/encode.h"
 #include "epdpaint.h"
 
 

@@ -26,6 +26,8 @@
 
 static const char *TAG = "lcd_panel.ssd1680";
 
+#define TRANSFER_QUEUE_SIZE 10
+
 #ifdef CONFIG_SPI_DISPLAY_SSD1680_1IN54_V1
 unsigned char WF_Full_1IN54[30] = {
         0x02, 0x02, 0x01, 0x11, 0x12, 0x12, 0x22, 0x22,
@@ -153,7 +155,7 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
             .clock_speed_hz = io_config->pclk_hz,
             .mode = io_config->spi_mode,
             .spics_io_num = io_config->cs_gpio_num,
-            .queue_size = io_config->trans_queue_depth,
+            .queue_size = TRANSFER_QUEUE_SIZE, // able to queue 10 transactions at a time
             .pre_cb = lcd_spi_pre_transfer_callback, // pre-transaction callback, mainly control DC gpio level
             .post_cb = io_config->on_color_trans_done ? lcd_spi_post_trans_callback
                                                       : NULL, // post-transaction, where we invoke user registered "on_color_trans_done()"
@@ -196,9 +198,9 @@ static esp_err_t lcd_data(lcd_ssd1680_panel_t *panel, const uint8_t *data, size_
     esp_err_t ret;
     spi_transaction_t t;
     memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length = len * 8;                 //Len is in bytes, transaction length is in bits.
-    t.tx_buffer = data;               //Data
-    t.user = (void *) 1;                //D/C needs to be set to 1
+    t.length = len * 8;             //Len is in bytes, transaction length is in bits.
+    t.tx_buffer = data;             //Data
+    t.user = (void *) 1;            //D/C needs to be set to 1
     ret = spi_device_polling_transmit(panel->spi_dev, &t);  //Transmit!
     ESP_GOTO_ON_ERROR(ret, err, TAG, "spi transmit (polling) data failed");
 
@@ -342,7 +344,7 @@ esp_err_t update_full(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
 #endif
     wait_for_busy(ssd1680);
-    ESP_LOGI(TAG, "ssd1680 full refresh success..");
+    // ESP_LOGI(TAG, "ssd1680 full refresh success..");
     return ESP_OK;
 }
 
@@ -356,7 +358,7 @@ esp_err_t update_part(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
 #endif
     wait_for_busy(ssd1680);
-    ESP_LOGI(TAG, "ssd1680 part refresh success..");
+    // ESP_LOGI(TAG, "ssd1680 part refresh success..");
     return ESP_OK;
 }
 
@@ -364,20 +366,21 @@ esp_err_t panel_ssd1680_clear_display(lcd_ssd1680_panel_t *panel, uint8_t color)
     set_mem_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
     set_mem_pointer(panel, 0, 0);
 
-    size_t len = LCD_H_RES * LCD_V_RES / 8;
+    // size_t len = LCD_H_RES * LCD_V_RES / 8;
     lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
+
     for (int j = 0; j < LCD_V_RES; j++) {
         for (int i = 0; i < LCD_H_RES / 8; i++) {
             lcd_data(panel, &color, 1);
         }
     }
 
-    lcd_cmd(panel, 0x26, NULL, 0);
-    for (int j = 0; j < LCD_V_RES; j++) {
-        for (int i = 0; i < LCD_H_RES / 8; i++) {
-            lcd_data(panel, &color, 1);
-        }
-    }
+//    lcd_cmd(panel, 0x26, NULL, 0);
+//    for (int j = 0; j < LCD_V_RES; j++) {
+//        for (int i = 0; i < LCD_H_RES / 8; i++) {
+//            lcd_data(panel, &color, 1);
+//        }
+//    }
 
     panel_ssd1680_refresh(panel, false);
     return ESP_OK;
@@ -518,13 +521,19 @@ esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int
     } else {
         lcd_cmd(panel, SSD1680_CMD_WRITE_RAM, NULL, 0);
         for (int16_t i = 0; i < h1; i++) {
-            for (int16_t j = 0; j < w1 / 8; j++) {
-                uint8_t data;
-                // use wb, h of bitmap for index!
-                int16_t idx = j + dx / 8 + (i + dy) * wb;
-                data = ((uint8_t *) color_data)[idx];
-                lcd_data(panel, &data, 1);
-            }
+            // method1 one byte by one byte
+//            for (int16_t j = 0; j < w1 / 8; j++) {
+//                uint8_t data;
+//                // use wb, h of bitmap for index!
+//                int16_t idx = j + dx / 8 + (i + dy) * wb;
+//                data = ((uint8_t *) color_data)[idx];
+//                lcd_data(panel, &data, 1);
+//            }
+
+            // method 2 full line (w1 / 8) byte
+            int16_t idx = dx / 8 + (i + dy) * wb;
+            uint8_t data = ((uint8_t *) color_data)[idx];
+            lcd_data(panel, &data, w1 / 8);
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }

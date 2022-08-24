@@ -15,6 +15,7 @@
 #include "esp_flash_partitions.h"
 #include "esp_partition.h"
 
+#include "esp_app_format.h"
 #include "nvs_flash.h"
 #include "esp_vfs.h"
 #include "esp_spiffs.h"

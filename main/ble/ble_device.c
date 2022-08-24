@@ -726,25 +726,25 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
     ret = esp_bt_controller_init(&bt_cfg);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return NULL;
+        return ESP_FAIL;
     }
 
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return NULL;
+        return ESP_FAIL;
     }
 
     ret = esp_bluedroid_init();
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return NULL;
+        return ESP_FAIL;
     }
 
     ret = esp_bluedroid_enable();
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return NULL;
+        return ESP_FAIL;
     }
 
     // 白名单
@@ -754,14 +754,14 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
     ret = esp_ble_gap_register_callback(esp_gap_cb);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s gap register failed, error code = %x\n", __func__, ret);
-        return NULL;
+        return ESP_FAIL;
     }
 
     //register the callback function to the gattc module
     ret = esp_ble_gattc_register_callback(esp_gattc_cb);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s gattc register failed, error code = %x\n", __func__, ret);
-        return NULL;
+        return ESP_FAIL;
     }
 
     ret = esp_ble_gattc_app_register(PROFILE_A_APP_ID);
@@ -787,5 +787,5 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
 }
 
 esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
-    return NULL;
+    return ESP_OK;
 }

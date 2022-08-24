@@ -20,7 +20,7 @@
 #include "esp_wifi.h"
 #include <math.h>
 
-#include "common.h"
+#include "bike_common.h"
 #include "test_page.h"
 #include "tools/encode.h"
 #include "epdpaint.h"
@@ -50,7 +50,7 @@ void init_list_view(int y) {
     list_view_add_element(list_view, "ddddd");
 }
 
-void info_page_key_click(key_event_id_t key_event_type) {
+bool info_page_key_click(key_event_id_t key_event_type) {
     int full_update = 0;
     if (KEY_1_SHORT_CLICK == key_event_type) {
         if (list_view) {
@@ -58,6 +58,8 @@ void info_page_key_click(key_event_id_t key_event_type) {
 
             esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
                               &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
+
+            return true;
         }
     } else if (KEY_2_SHORT_CLICK == key_event_type) {
         if (list_view && list_view->current_index == 0) {
@@ -72,8 +74,12 @@ void info_page_key_click(key_event_id_t key_event_type) {
             list_view_update_item(list_view, 0, wifi_on ? "clsoe wifi" : "open wifi");
             esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
                               &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
+
+            return true;
         }
     }
+
+    return false;
 }
 
 void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {

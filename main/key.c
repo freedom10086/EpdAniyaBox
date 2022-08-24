@@ -8,7 +8,7 @@
 #include "freertos/queue.h"
 #include "esp_log.h"
 
-#include "common.h"
+#include "bike_common.h"
 #include "key.h"
 
 
@@ -67,17 +67,18 @@ static void key_task_entry(void *arg) {
 
     while (1) {
         if (xQueueReceive(event_queue, &clicked_gpio, portMAX_DELAY)) {
-            vTaskDelay(pdMS_TO_TICKS(1));
+            vTaskDelay(pdMS_TO_TICKS(2));
             uint8_t index = KEY_1_NUM == clicked_gpio ? 0 : 1;
 
             if (gpio_get_level(clicked_gpio) == 0) {
-                ESP_LOGI(TAG, "key %d click down detect...", clicked_gpio);
+                //ESP_LOGI(TAG, "key %d click down detect...", clicked_gpio);
             } else if (gpio_get_level(clicked_gpio) == 1) {
-                ESP_LOGI(TAG, "key %d click up detect...", clicked_gpio);
+                //ESP_LOGI(TAG, "key %d click up detect...", clicked_gpio);
                 tick_diff = xTaskGetTickCount() - tick_count[index];
                 time_diff_ms = pdTICKS_TO_MS(tick_diff);
 
-                if (tick_diff > configTICK_RATE_HZ * 1.0) {
+                // configTICK_RATE_HZ = 1s
+                if (tick_diff > configTICK_RATE_HZ * 0.8f) {
                     ESP_LOGI(TAG, "key %d long press", clicked_gpio);
                     esp_event_post_to(event_loop_handle,
                                       BIKE_KEY_EVENT,

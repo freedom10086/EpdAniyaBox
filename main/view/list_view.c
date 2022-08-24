@@ -20,7 +20,7 @@
 #include "esp_wifi.h"
 #include <math.h>
 
-#include "common.h"
+#include "bike_common.h"
 #include "list_view.h"
 
 #define DIVIDER 1

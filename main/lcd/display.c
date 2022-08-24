@@ -17,10 +17,11 @@
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
 
-#include "common.h"
+#include "bike_common.h"
 #include "main_page.h"
 #include "test_page.h"
 #include "info_page.h"
+#include "bitmap_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 #include "key.h"
@@ -52,8 +53,8 @@ static void guiTask(void *pvParameter);
 static TaskHandle_t xTaskToNotify = NULL;
 const UBaseType_t xArrayIndex = 0;
 
-static uint8_t current_page_index = 1;
-static page_inst_t pages[3] = {
+static uint8_t current_page_index = 3;
+static page_inst_t pages[] = {
         [0] = {
                 .page_name = "main_page",
                 .draw_cb = main_page_draw,
@@ -61,11 +62,16 @@ static page_inst_t pages[3] = {
         [1] = {
                 .page_name = "info_page",
                 .draw_cb = info_page_draw,
-                .key_click_cb = info_page_key_click,
+                .key_click_handler = info_page_key_click,
         },
         [2] = {
                 .page_name = "test_page",
                 .draw_cb = test_page_draw,
+        },
+        [3] = {
+                .page_name = "bitmap_page",
+                .draw_cb = bitmap_page_draw,
+                .key_click_handler = bitmap_page_key_click_handle,
         }
 };
 
@@ -124,17 +130,16 @@ static void guiTask(void *pvParameter) {
 
     spi_driver_init(TFT_SPI_HOST,
                     DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
-                    DISP_BUFF_SIZE * sizeof(uint8_t), SPI_DMA_CH_AUTO);
+                    DISP_BUFF_SIZE, SPI_DMA_CH_AUTO);
 
     ESP_LOGI(TAG, "Install panel IO");
     esp_lcd_panel_io_spi_config_t io_config = {
             .dc_gpio_num = DISP_PIN_DC,
             .cs_gpio_num = DISP_SPI_CS,
-            .pclk_hz = 400000,
+            .pclk_hz = 10 * 1000 * 1000, // 10M
             .lcd_cmd_bits = 8,
             .lcd_param_bits = 8,
             .spi_mode = 0,
-            .trans_queue_depth = 8,
             //.on_color_trans_done = ,
     };
 
@@ -152,11 +157,11 @@ static void guiTask(void *pvParameter) {
     panel_ssd1680_init_full(&panel);
     // panel_ssd1680_init_partial(&panel);
 
-    //panel_ssd1680_clear_display(panel, 0xff);
-
     // for test
     epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
-    uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
+
+    //uint8_t *image = malloc(sizeof(uint8_t) * LCD_H_RES * LCD_V_RES / 8);
+    uint8_t *image = heap_caps_malloc(LCD_H_RES * LCD_V_RES * sizeof(uint8_t) / 8, MALLOC_CAP_DMA);
     if (!image) {
         ESP_LOGE(TAG, "no memory for display driver");
         return;
@@ -166,44 +171,47 @@ static void guiTask(void *pvParameter) {
 
     epd_paint_clear(epd_paint, 0);
     panel_ssd1680_clear_display(&panel, 0xff);
-
-    //panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-    //panel_ssd1680_refresh(&panel, false);
-
     panel_ssd1680_init_partial(&panel);
 
-    uint32_t loop_cnt = 0;
-    static uint32_t last_full_refresh_tick;
+    static uint32_t loop_cnt = 1;
+    uint32_t last_full_refresh_loop_cnt = loop_cnt;
+    uint32_t last_full_refresh_tick = xTaskGetTickCount();
     static uint32_t current_tick;
 
     while (1) {
+        // not first loop
+        if (loop_cnt > 1) {
+            //ulTaskGenericNotifyTake()
+            uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex, pdTRUE, pdMS_TO_TICKS(30000));
+            ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
+            if (ulNotificationValue > 0) { // may > 1 more data ws send
+                /* The transmission ended as expected. */
+                //gpio_isr_handler_remove(zw800_dev->touch_pin);
+            } else {
+                /* The call to ulTaskNotifyTake() timed out. */
+            }
+        }
+
         ESP_LOGI(TAG, "draw loop %ld", loop_cnt);
-        loop_cnt += 1;
         current_tick = xTaskGetTickCount();
 
-        if (loop_cnt % 20 == 0 || current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) {
+        if (loop_cnt - last_full_refresh_loop_cnt >= 30 ||
+            current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) {
+            ESP_LOGI(TAG, "========= request full refresh =========");
             // request full fresh
             panel_ssd1680_init_full(&panel);
             panel_ssd1680_clear_display(&panel, 0xff);
-
             panel_ssd1680_init_partial(&panel);
+
             last_full_refresh_tick = current_tick;
+            last_full_refresh_loop_cnt = loop_cnt;
         }
 
         draw_page(epd_paint, loop_cnt);
-
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, true);
 
-        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex, pdTRUE, pdMS_TO_TICKS(30000));
-        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
-        if (ulNotificationValue > 0) { // may > 1 more data ws send
-            /* The transmission ended as expected. */
-            //gpio_isr_handler_remove(zw800_dev->touch_pin);
-        } else {
-            /* The call to ulTaskNotifyTake() timed out. */
-        }
-        // vTaskDelay(pdTICKS_TO_MS(30000));
+        loop_cnt += 1;
     }
 
     panel_ssd1680_sleep(&panel);
@@ -217,7 +225,7 @@ static void guiTask(void *pvParameter) {
 void request_display_update_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
     if (BIKE_REQUEST_UPDATE_DISPLAY_EVENT == event_base) {
-        ESP_LOGI(TAG, "request for update...");
+        //ESP_LOGI(TAG, "request for update...");
         int *full_update = (int *) event_data;
         xTaskGenericNotify(xTaskToNotify, xArrayIndex, *full_update,
                            eNoAction, NULL);
@@ -235,11 +243,17 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
         default:
             break;
     }
+
     // if not handle passed to view
     page_inst_t current_page = pages[current_page_index];
-    if (current_page.key_click_cb) {
-        current_page.key_click_cb(event_id);
+    if (current_page.key_click_handler) {
+        if (current_page.key_click_handler(event_id)) {
+            return;
+        }
     }
+
+    // if page not handle key click event here handle
+    ESP_LOGI(TAG, "no page handler key click event %ld", event_id);
 }
 
 void display_init() {

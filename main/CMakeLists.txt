@@ -1,6 +1,6 @@
 set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font20.c" "lcd/font24.c"
         "lcd/font32.c" "lcd/font32.c" "lcd/font36.c" "lcd/epdpaint.c" "lcd/font_hzk16.c"
-        "lcd/decode_image.c" "lcd/bmp.c"
+        "lcd/bmp.c"
         "tools/kalman_filter.c" "tools/encode.c"
         "battery.c" "key.c"
         "wifi/wifi_ap.c" "wifi/my_http_server.c" "wifi/my_http_file_server.c" "wifi/my_mount.c"
@@ -10,7 +10,7 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
         "zw800.c"
         "sht31.c"
         "nmea_parser.c"
-        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c"
+        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c" "lcd/bitmap_page.c"
         "view/list_view.c"
         "main.c")
 

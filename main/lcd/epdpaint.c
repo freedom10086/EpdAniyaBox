@@ -29,7 +29,7 @@
 #include <string.h>
 #include "epdpaint.h"
 #include "bmp.h"
-#include "common.h"
+#include "bike_common.h"
 
 void epd_paint_init(epd_paint_t *epd_paint, unsigned char *image, int width, int height) {
     epd_paint->rotate = ROTATE_0;
@@ -341,19 +341,29 @@ void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radi
     } while (x_pos <= 0);
 }
 
-void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, unsigned char *bmp_data,
-                           int colored) {
+void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, uint8_t *bmp_data,
+                           uint16_t data_size, int colored) {
     // Since an adress must be passed to fread, create a variable!
-    uint16_t magic = ((uint16_t *) bmp_data)[0];
-    bmp_header *bmpHeader = (bmp_header *) (bmp_data + sizeof(magic));
-
-    if (magic != BMP_MAGIC) {
+    // uint16_t magic = ((uint16_t *) bmp_data)[0];
+    bmp_header bmpHeader;
+    enum bmp_error err = bmp_header_read(&bmpHeader, bmp_data, data_size);
+    if (err != BMP_OK) {
         // not valid bmp pic just draw rec
         epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
         epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
         epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
     } else {
-
+        bmp_img_common *bmp_img = (bmp_img_common *) bmp_data;
+        bmp_pixel_color out_color;
+        uint8_t gray_color;
+        for (int j = y; j < y + height; ++j) {
+            for (int i = x; i < x + width; ++i) {
+                bmp_get_pixel(&out_color, bmp_img, (i - x), (j - y));
+                // rgb 30% 50% 20%
+                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
+                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
+            }
+        }
     }
 }
 
