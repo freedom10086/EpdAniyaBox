@@ -184,50 +184,33 @@ enum bmp_error bmp_header_read_file(bmp_img_file_common *bmp_img, FILE *img_file
 }
 
 int bmp_read_file_lines(bmp_img_file_common *bmp_img, uint16_t start_y, uint16_t lines, FILE *img_file) {
-    uint16_t line_byte = ((bmp_img->img_header.biBitCount * bmp_img->img_header.biWidth + 7) & ~7) >> 3;
     uint16_t pad_line_byte = ((bmp_img->img_header.biWidth * bmp_img->img_header.biBitCount + 31) & ~31) >> 3;
-
-    assert(lines * line_byte <= bmp_img->data_buff_size);
-
-    const size_t offset = (bmp_img->img_header.biHeight > 0 ? bmp_img->img_header.biHeight - 1 : 0);
     bmp_img->data_start_y = start_y;
     bmp_img->data_end_y = start_y;
 
-    int32_t total_read_byte = 0;
-    for (int i = 0; i < lines && i + start_y < abs(bmp_img->img_header.biHeight); ++i) {
-        const uint16_t y_index = abs(offset - start_y - i);
-        uint32_t line_start_index = pad_line_byte * y_index;
-
-        fseek(img_file, line_start_index + bmp_img->img_header.bfOffBits, SEEK_SET);
-        size_t read_count = fread((bmp_img->data_buff + i * line_byte), sizeof(uint8_t), line_byte, img_file);
-        total_read_byte += read_count;
-
-        if (read_count > 0) {
-            bmp_img->data_end_y += 1;
-        }
-
-        if (read_count < line_byte) {
-            if (feof(img_file)) {
-                return total_read_byte;
-            }
-            return BMP_ERROR;
-        }
-
-        // ignore padding ?
-        // fseek(img_file, padding, SEEK_CUR);
+    uint32_t start_byte_index =
+            (bmp_img->img_header.biHeight < 0 ? start_y : bmp_img->img_header.biHeight - lines - start_y) *
+            pad_line_byte;
+    fseek(img_file, start_byte_index + bmp_img->img_header.bfOffBits, SEEK_SET);
+    size_t read_count = fread(bmp_img->data_buff, sizeof(uint8_t), pad_line_byte * lines, img_file);
+    if (read_count > 0) {
+        bmp_img->data_end_y += (read_count + pad_line_byte - 1) / pad_line_byte;
+        return read_count;
+    } else if (feof(img_file)) {
+        return read_count;
+    } else {
+        return BMP_ERROR;
     }
-
-    return total_read_byte;
 }
 
 void
 bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file) {
     // data not in buff
-    uint16_t line_byte = ((bmp_img->img_header.biBitCount * bmp_img->img_header.biWidth + 7) & ~7) >> 3;
+    uint16_t pad_line_byte = ((bmp_img->img_header.biWidth * bmp_img->img_header.biBitCount + 31) & ~31) >> 3;
     if (y < bmp_img->data_start_y || y >= bmp_img->data_end_y) {
         // read from buff
         if (bmp_img->data_buff == NULL) {
-            uint16_t buff_size = max(8192 / line_byte * line_byte, line_byte);
+            uint16_t buff_size = max(8192 / pad_line_byte * pad_line_byte, pad_line_byte);
             bmp_img->data_buff = malloc(buff_size);
             if (bmp_img->data_buff == NULL) {
                 // no memory
@@ -239,14 +222,16 @@ bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uin
         }
 
         uint32_t start_tck = xTaskGetTickCount();
-        uint16_t lines = min(abs(bmp_img->img_header.biHeight) - y, bmp_img->data_buff_size / line_byte);
+        uint16_t lines = min(abs(bmp_img->img_header.biHeight) - y, bmp_img->data_buff_size / pad_line_byte);
 
         ESP_LOGI(TAG, "read lines from %d to %d buff_size: %d", y, y + lines, bmp_img->data_buff_size);
-        bmp_read_file_lines(bmp_img, y, lines, img_file);
-        ESP_LOGI(TAG, "cost %ldms", pdTICKS_TO_MS(xTaskGetTickCount() - start_tck));
+        int read_bytes = bmp_read_file_lines(bmp_img, y, lines, img_file);
+        ESP_LOGI(TAG, "read %d cost %ldms", read_bytes, pdTICKS_TO_MS(xTaskGetTickCount() - start_tck));
     }
 
-    uint32_t line_start_index = line_byte * (y - bmp_img->data_start_y);
+    uint32_t line_start_index =
+            (bmp_img->img_header.biHeight < 0 ? (y - bmp_img->data_start_y) : (bmp_img->data_end_y - y - 1)) *
+            pad_line_byte;
     bmp_get_pixel_from_line(out_color, &bmp_img->img_header, (RGBQUAD *) bmp_img->color_data,
                             bmp_img->data_buff + line_start_index, x, y);
 }
