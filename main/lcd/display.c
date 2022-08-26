@@ -257,7 +257,8 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
 }
 
 void display_init() {
-    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 0, NULL, 1);
+    // uxPriority 0 最低
+    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 1, NULL, 1);
 
     // key click event
     esp_event_handler_register_with(event_loop_handle,

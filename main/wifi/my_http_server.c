@@ -39,7 +39,6 @@ static const char *TAG = "http_server";
 
 
 char buff[BUFFSIZE + 1] = {0};
-const char* file_server_base_path = "/data";
 
 typedef struct {
     httpd_handle_t server_hdl;
@@ -469,8 +468,8 @@ esp_err_t my_http_server_start() {
     };
     httpd_register_uri_handler(server, &info);
 
-    ESP_ERROR_CHECK(mount_storage(file_server_base_path));
-    register_file_server(file_server_base_path, server);
+    ESP_ERROR_CHECK(mount_storage(FILE_SERVER_BASE_PATH, true));
+    register_file_server(FILE_SERVER_BASE_PATH, server);
 
     return ESP_OK;
 }

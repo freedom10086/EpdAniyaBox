@@ -94,6 +94,15 @@ typedef struct {
     uint8_t data[1]; //包含lut和数据具体使用的时候再分开
 } __attribute__((packed)) bmp_img_common;
 
+typedef struct {
+    bmp_header img_header;
+    uint8_t *color_data; //包含lut和数据具体使用的时候再分开
+    uint8_t *data_buff;
+    uint16_t data_buff_size;  // 必须是按行读取的整数倍
+    uint16_t data_start_y; // 数据buff start_y
+    uint16_t data_end_y; // 数据buff end_y (不包含)
+} __attribute__((packed)) bmp_img_file_common;
+
 //    bfOffBits - 14 - biSize
 //    RGBQUAD 彩色表lut // 1、4、8、16 才有
 //    pColor = ((LPSTR) pBitmapInfo + (uint16_t) (pBitmapInfo->bmiHeader.biSize))
@@ -114,27 +123,19 @@ typedef struct {
     bmp_pixel_32 img_pixels[1];
 } __attribute__((packed)) bmp_img_32;
 
-
-void bmp_header_init(bmp_header *header, uint16_t width, uint16_t height, uint16_t biBitCount);
-
-enum bmp_error bmp_header_write(const bmp_header *header, RGBQUAD *bmiColors, FILE *img_file);
-
 enum bmp_error bmp_header_read(bmp_header *header, uint8_t *data, uint16_t data_len);
-
-enum bmp_error bmp_header_read_file(bmp_header *header, FILE *file);
-
-// BMP_PIXEL
-void bmp_set_pixel(bmp_pixel_color *out_color, uint8_t r, uint8_t g, uint8_t b);
 
 void bmp_get_pixel(bmp_pixel_color *out_color, bmp_img_common *bmp_img, uint16_t x, uint16_t y);
 
-// BMP_IMG
-void bmp_img_alloc(bmp_img_24 *);
-
-void bmp_img_free(bmp_img_24 *);
-
-enum bmp_error bmp_img_write(const bmp_img_24 *, const char *);
-
 enum bmp_error bmp_img_read(bmp_img_24 *, const char *);
+
+// FILE
+
+enum bmp_error bmp_header_read_file(bmp_img_file_common *bmp_img, FILE *img_file);
+
+void
+bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file);
+
+void bmp_file_free(bmp_img_file_common *bmp_img);
 
 #endif

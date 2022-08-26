@@ -1,29 +1,3 @@
-/**
- *  @filename   :   epdpaint.cpp
- *  @brief      :   Paint tools
- *  @author     :   Yehui from Waveshare
- *  
- *  Copyright (C) Waveshare     September 9 2017
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of epd_paint software and associated documnetation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to  whom the Software is
- * furished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,7 +14,8 @@ void epd_paint_init(epd_paint_t *epd_paint, unsigned char *image, int width, int
 }
 
 void epd_paint_deinit(epd_paint_t *epd_paint) {
-
+    free(epd_paint->image);
+    epd_paint->image = NULL;
 }
 
 /**
@@ -343,8 +318,6 @@ void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radi
 
 void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, uint8_t *bmp_data,
                            uint16_t data_size, int colored) {
-    // Since an adress must be passed to fread, create a variable!
-    // uint16_t magic = ((uint16_t *) bmp_data)[0];
     bmp_header bmpHeader;
     enum bmp_error err = bmp_header_read(&bmpHeader, bmp_data, data_size);
     if (err != BMP_OK) {
@@ -356,15 +329,59 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
         bmp_img_common *bmp_img = (bmp_img_common *) bmp_data;
         bmp_pixel_color out_color;
         uint8_t gray_color;
-        for (int j = y; j < y + height; ++j) {
-            for (int i = x; i < x + width; ++i) {
+
+        uint16_t end_x = min(x + width, epd_paint->width);
+        end_x = min(end_x, bmpHeader.biWidth);
+
+        uint16_t end_y = min(y + height, epd_paint->height);
+        end_y = min(end_y, abs(bmpHeader.biWidth));
+
+        for (int j = y; j < end_y; ++j) {
+            for (int i = x; i < end_x; ++i) {
                 bmp_get_pixel(&out_color, bmp_img, (i - x), (j - y));
                 // rgb 30% 50% 20%
                 gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
-                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
+                if (!colored) {
+                    gray_color = 255 - gray_color;
+                }
+                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 132 ? 0 : 1);
             }
         }
     }
+}
+
+void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, int colored) {
+    bmp_img_file_common bmpHeader;
+    enum bmp_error err = bmp_header_read_file(&bmpHeader, file);
+    if (err != BMP_OK) {
+        // not valid bmp pic just draw rec
+        epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
+        epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
+        epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
+    } else {
+        bmp_pixel_color out_color;
+        uint8_t gray_color;
+
+        uint16_t end_x = min(x + width, epd_paint->width);
+        end_x = min(end_x, bmpHeader.img_header.biWidth);
+
+        uint16_t end_y = min(y + height, epd_paint->height);
+        end_y = min(end_y, abs(bmpHeader.img_header.biWidth));
+
+        for (int j = y; j < end_y; ++j) {
+            for (int i = x; i < end_x; ++i) {
+                bmp_file_get_pixel(&out_color, &bmpHeader, (i - x), (j - y), file);
+                // rgb 30% 50% 20%
+                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
+                if (!colored) {
+                    gray_color = 255 - gray_color;
+                }
+                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 132 ? 0 : 1);
+            }
+        }
+    }
+
+    bmp_file_free(&bmpHeader);
 }
 
 /* END OF FILE */

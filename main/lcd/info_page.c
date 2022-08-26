@@ -52,7 +52,7 @@ void init_list_view(int y) {
 
 bool info_page_key_click(key_event_id_t key_event_type) {
     int full_update = 0;
-    if (KEY_1_SHORT_CLICK == key_event_type) {
+    if (KEY_2_SHORT_CLICK == key_event_type) {
         if (list_view) {
             list_view->current_index = (list_view->current_index + 1) % list_view->element_count;
 
@@ -61,7 +61,7 @@ bool info_page_key_click(key_event_id_t key_event_type) {
 
             return true;
         }
-    } else if (KEY_2_SHORT_CLICK == key_event_type) {
+    } else if (KEY_1_SHORT_CLICK == key_event_type) {
         if (list_view && list_view->current_index == 0) {
             // on off wifi
             if (wifi_on) {

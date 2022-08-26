@@ -237,7 +237,7 @@ static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
             if (gpio_get_level(ssd1680->busy_gpio_num)) {
                 vTaskDelay(pdMS_TO_TICKS(5));
                 wait_cnt ++;
-                if (wait_cnt >= 200) {
+                if (wait_cnt >= 300) {
                     ESP_LOGI(TAG, "still wait for busy ...");
                     wait_cnt = 0;
                 }

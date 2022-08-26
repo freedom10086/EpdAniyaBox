@@ -92,7 +92,7 @@ esp_err_t example_mount_storage(const char* base_path)
 #else // CONFIG_EXAMPLE_MOUNT_SD_CARD
 
 /* Function to initialize SPIFFS */
-esp_err_t mount_storage(const char *base_path) {
+esp_err_t mount_storage(const char *base_path, bool format_when_failed) {
     ESP_LOGI(TAG, "Initializing SPIFFS");
 
     esp_vfs_spiffs_conf_t conf = {
@@ -101,6 +101,11 @@ esp_err_t mount_storage(const char *base_path) {
             .max_files = 5,   // This sets the maximum number of files that can be open at the same time
             .format_if_mount_failed = true
     };
+
+    if (esp_spiffs_mounted(conf.partition_label)) {
+        ESP_LOGW(TAG, "SPIFFS already mounted...");
+        return ESP_OK;
+    }
 
     esp_err_t ret = esp_vfs_spiffs_register(&conf);
     if (ret != ESP_OK) {
@@ -158,6 +163,11 @@ esp_err_t mount_storage(const char *base_path) {
 #endif // !CONFIG_EXAMPLE_MOUNT_SD_CARD
 
 esp_err_t unmount_storage() {
+    if (!esp_spiffs_mounted(NULL)) {
+        ESP_LOGW(TAG, "SPIFFS not mounted...");
+        return ESP_OK;
+    }
+
     // All done, unmount partition and disable SPIFFS
     esp_err_t err = esp_vfs_spiffs_unregister(NULL);
     ESP_LOGI(TAG, "SPIFFS unmounted");

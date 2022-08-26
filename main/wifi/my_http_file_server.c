@@ -25,15 +25,11 @@
 #include "esp_vfs.h"
 #include "esp_spiffs.h"
 #include "esp_http_server.h"
+#include "my_file_server_common.h"
 #include "static/static.h"
 
 /* Max length a file path can have on storage */
 #define FILE_PATH_MAX (ESP_VFS_PATH_MAX + CONFIG_SPIFFS_OBJ_NAME_LEN)
-
-/* Max size of an individual file. Make sure this
- * value is same as that set in upload_script.html */
-#define MAX_FILE_SIZE   (200*1024) // 200 KB
-#define MAX_FILE_SIZE_STR "200KB"
 
 /* Scratch buffer size */
 #define SCRATCH_BUFSIZE  8192
@@ -92,6 +88,8 @@ static esp_err_t http_resp_dir_html(httpd_req_t *req, const char *dirpath) {
         httpd_resp_send_err(req, HTTPD_404_NOT_FOUND, "Directory does not exist");
         return ESP_FAIL;
     }
+
+    ESP_LOGI(TAG, "list Dir %s", dirpath);
 
     /* Send HTML file header */
     httpd_resp_sendstr_chunk(req, "<!DOCTYPE html><html>"
