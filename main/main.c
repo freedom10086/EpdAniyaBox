@@ -17,6 +17,8 @@
 #include "nmea_parser.h"
 #include "ble/ble_device.h"
 #include "sd_card.h"
+#include "esp_sleep.h"
+
 #include "tools/kalman_filter.h"
 #include "ms5611.h"
 #include "led/ws2812.h"
@@ -36,6 +38,8 @@ static const char *TAG = "BIKE_MAIN";
 #define YEAR_BASE (2000) //date in GPS starts from 2000
 
 esp_event_loop_handle_t event_loop_handle;
+
+RTC_DATA_ATTR static int boot_count = 0;
 
 static void application_task(void *args) {
     while (1) {
@@ -150,8 +154,13 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
  **********************/
 void app_main() {
     // esp_log_level_set("*", ESP_LOG_WARN);
+    boot_count ++;
+    esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
+    if (cause != ESP_SLEEP_WAKEUP_UNDEFINED) {
+        ESP_LOGI(TAG, "wake up by cause  %d", cause);
+    }
 
-    printf("Hello world!\n");
+    printf("Hello world!, boot count %d\n", boot_count);
 
     /* Print chip information */
     esp_chip_info_t chip_info;

@@ -28,11 +28,6 @@
 
 static const char *TAG = "http_server";
 
-/* Max size of an individual file. Make sure this
- * value is same as that set in index.html */
-#define MAX_FILE_SIZE   (200*1024) // 200 KB
-#define MAX_FILE_SIZE_STR "200KB"
-
 #define BUFFSIZE 1024
 #define OTA_BUFFSIZE 1024
 #define HASH_LEN 32 /* SHA-256 digest length */

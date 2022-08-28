@@ -8,6 +8,9 @@
 
 ESP_EVENT_DECLARE_BASE(BIKE_KEY_EVENT);
 
+#define KEY_1_NUM 0
+#define KEY_2_NUM 9
+
 /**
  * key click event
  */

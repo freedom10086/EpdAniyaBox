@@ -16,6 +16,8 @@
 #include "esp_system.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
+#include "esp_sleep.h"
+#include "driver/rtc_io.h"
 
 #include "bike_common.h"
 #include "main_page.h"
@@ -123,6 +125,27 @@ void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     current_page.draw_cb(epd_paint, loop_cnt);
 }
 
+void enter_deep_sleep(int sleep_ts) {
+    esp_sleep_enable_timer_wakeup(sleep_ts * 1000000);
+    //esp_sleep_enable_ext1_wakeup(1 << KEY_1_NUM, ESP_EXT1_WAKEUP_ALL_LOW);
+#ifdef SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
+    const gpio_config_t config = {
+            .pin_bit_mask = 1 << KEY_1_NUM,
+            .mode = GPIO_MODE_INPUT,
+    };
+    ESP_ERROR_CHECK(gpio_config(&config));
+    ESP_ERROR_CHECK(esp_deep_sleep_enable_gpio_wakeup(1 << KEY_1_NUM, ESP_GPIO_WAKEUP_GPIO_LOW));
+    printf("Enabling GPIO wakeup on pins GPIO%d\n", KEY_1_NUM);
+#else
+    esp_sleep_enable_ext0_wakeup(KEY_1_NUM, 0);
+    rtc_gpio_pullup_en(KEY_1_NUM);
+    rtc_gpio_pulldown_dis(KEY_1_NUM);
+#endif
+
+    ESP_LOGI(TAG, "enter deep sleep mode");
+    esp_deep_sleep_start();
+}
+
 static void guiTask(void *pvParameter) {
 
     (void) pvParameter;
@@ -177,18 +200,21 @@ static void guiTask(void *pvParameter) {
     uint32_t last_full_refresh_loop_cnt = loop_cnt;
     uint32_t last_full_refresh_tick = xTaskGetTickCount();
     static uint32_t current_tick;
+    static uint32_t ulNotificationCount;
+    static uint32_t continue_time_out_count = 0;
 
     while (1) {
         // not first loop
         if (loop_cnt > 1) {
             //ulTaskGenericNotifyTake()
-            uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex, pdTRUE, pdMS_TO_TICKS(30000));
-            ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
-            if (ulNotificationValue > 0) { // may > 1 more data ws send
-                /* The transmission ended as expected. */
-                //gpio_isr_handler_remove(zw800_dev->touch_pin);
+            //ulTaskNotifyTakeIndexed
+            ulNotificationCount = ulTaskGenericNotifyTake(xArrayIndex, pdTRUE, pdMS_TO_TICKS(60000));
+            ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
+            if (ulNotificationCount > 0) { // may > 1 more data ws send
+                continue_time_out_count = 0;
             } else {
                 /* The call to ulTaskNotifyTake() timed out. */
+                continue_time_out_count += 1;
             }
         }
 
@@ -196,7 +222,7 @@ static void guiTask(void *pvParameter) {
         current_tick = xTaskGetTickCount();
 
         if (loop_cnt - last_full_refresh_loop_cnt >= 30 ||
-            current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) {
+            current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) { // 300s
             ESP_LOGI(TAG, "========= request full refresh =========");
             // request full fresh
             panel_ssd1680_init_full(&panel);
@@ -212,6 +238,10 @@ static void guiTask(void *pvParameter) {
         panel_ssd1680_refresh(&panel, true);
 
         loop_cnt += 1;
+
+        if (continue_time_out_count >= 1 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+            enter_deep_sleep(30);
+        }
     }
 
     panel_ssd1680_sleep(&panel);
@@ -228,7 +258,7 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
         //ESP_LOGI(TAG, "request for update...");
         int *full_update = (int *) event_data;
         xTaskGenericNotify(xTaskToNotify, xArrayIndex, *full_update,
-                           eNoAction, NULL);
+                           eIncrement, NULL);
     }
 }
 

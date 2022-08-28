@@ -16,9 +16,6 @@
 
 ESP_EVENT_DEFINE_BASE(BIKE_KEY_EVENT);
 
-const gpio_num_t KEY_1_NUM = 0;
-const gpio_num_t KEY_2_NUM = 9;
-
 //static TaskHandle_t xTaskToNotify = NULL;
 //const UBaseType_t xArrayIndex = 0;
 
