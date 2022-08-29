@@ -17,6 +17,6 @@ typedef struct{
     key_click_handler key_click_handler;
 } page_inst_t;
 
-void display_init();
+void display_init(uint32_t boot_count);
 
 #endif

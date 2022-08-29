@@ -43,11 +43,11 @@ static void key_task_entry(void *arg) {
 //
 //        /* Wait to be notified that the transmission is complete.  Note the first parameter is pdTRUE, which has the effect of clearing
 //        the task's notification value back to 0, making the notification value act like a binary (rather than a counting) semaphore.  */
-//        uint32_t ulNotificationValue = ulTaskNotifyTakeIndexed(xArrayIndex,
+//        uint32_t ulNotificationValueCount = ulTaskNotifyTakeIndexed(xArrayIndex,
 //                                                               pdTRUE,
 //                                                               pdMS_TO_TICKS(30000));
-//        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValue);
-//        if (ulNotificationValue > 0) { // may > 1 more data ws send
+//        ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationValueCount);
+//        if (ulNotificationValueCount > 0) { // may > 1 more data ws send
 //            /* The transmission ended as expected. */
 //            //gpio_isr_handler_remove(zw800_dev->touch_pin);
 //            ESP_LOGI(TAG, "key click detect...");

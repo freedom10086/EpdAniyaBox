@@ -39,7 +39,7 @@ static const char *TAG = "BIKE_MAIN";
 
 esp_event_loop_handle_t event_loop_handle;
 
-RTC_DATA_ATTR static int boot_count = 0;
+RTC_DATA_ATTR static uint32_t boot_count = 0;
 
 static void application_task(void *args) {
     while (1) {
@@ -160,7 +160,7 @@ void app_main() {
         ESP_LOGI(TAG, "wake up by cause  %d", cause);
     }
 
-    printf("Hello world!, boot count %d\n", boot_count);
+    printf("Hello world!, boot count %ld\n", boot_count);
 
     /* Print chip information */
     esp_chip_info_t chip_info;
@@ -228,7 +228,7 @@ void app_main() {
     /**
      * lcd
      */
-    display_init();
+    display_init(boot_count);
 
     /**
      *  sd card

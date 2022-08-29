@@ -53,6 +53,7 @@ ESP_EVENT_DEFINE_BASE(BIKE_REQUEST_UPDATE_DISPLAY_EVENT);
 static void guiTask(void *pvParameter);
 
 static TaskHandle_t xTaskToNotify = NULL;
+static uint32_t boot_cnt = 0;
 const UBaseType_t xArrayIndex = 0;
 
 static uint8_t current_page_index = 3;
@@ -147,8 +148,6 @@ void enter_deep_sleep(int sleep_ts) {
 }
 
 static void guiTask(void *pvParameter) {
-
-    (void) pvParameter;
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     spi_driver_init(TFT_SPI_HOST,
@@ -191,8 +190,8 @@ static void guiTask(void *pvParameter) {
     }
 
     epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
-
     epd_paint_clear(epd_paint, 0);
+
     panel_ssd1680_clear_display(&panel, 0xff);
     panel_ssd1680_init_partial(&panel);
 
@@ -205,7 +204,7 @@ static void guiTask(void *pvParameter) {
 
     while (1) {
         // not first loop
-        if (loop_cnt > 1) {
+        if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
             //ulTaskGenericNotifyTake()
             //ulTaskNotifyTakeIndexed
             ulNotificationCount = ulTaskGenericNotifyTake(xArrayIndex, pdTRUE, pdMS_TO_TICKS(60000));
@@ -218,29 +217,25 @@ static void guiTask(void *pvParameter) {
             }
         }
 
-        ESP_LOGI(TAG, "draw loop %ld", loop_cnt);
+        ESP_LOGI(TAG, "draw loop: %ld, boot_cnt: %ld ", loop_cnt, boot_cnt);
         current_tick = xTaskGetTickCount();
 
-        if (loop_cnt - last_full_refresh_loop_cnt >= 30 ||
-            current_tick - last_full_refresh_tick >= configTICK_RATE_HZ * 300) { // 300s
-            ESP_LOGI(TAG, "========= request full refresh =========");
-            // request full fresh
-            panel_ssd1680_init_full(&panel);
-            panel_ssd1680_clear_display(&panel, 0xff);
-            panel_ssd1680_init_partial(&panel);
+        draw_page(epd_paint, loop_cnt);
+        panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
 
+        // use full update mode
+        bool use_partial_update_mode = loop_cnt - last_full_refresh_loop_cnt < 60
+                                    && current_tick - last_full_refresh_tick < configTICK_RATE_HZ * 1800;
+        panel_ssd1680_refresh(&panel, use_partial_update_mode);
+        if (!use_partial_update_mode) {
             last_full_refresh_tick = current_tick;
             last_full_refresh_loop_cnt = loop_cnt;
         }
 
-        draw_page(epd_paint, loop_cnt);
-        panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
-        panel_ssd1680_refresh(&panel, true);
-
         loop_cnt += 1;
 
-        if (continue_time_out_count >= 1 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
-            enter_deep_sleep(30);
+        if (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+            enter_deep_sleep(120);
         }
     }
 
@@ -286,7 +281,9 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
     ESP_LOGI(TAG, "no page handler key click event %ld", event_id);
 }
 
-void display_init() {
+void display_init(uint32_t boot_count) {
+    boot_cnt = boot_count;
+
     // uxPriority 0 最低
     xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 1, NULL, 1);
 
@@ -295,7 +292,7 @@ void display_init() {
                                     BIKE_KEY_EVENT, ESP_EVENT_ANY_ID,
                                     key_click_event_handler, NULL);
 
-    // update display
+    // update display event
     esp_event_handler_register_with(event_loop_handle,
                                     BIKE_REQUEST_UPDATE_DISPLAY_EVENT, ESP_EVENT_ANY_ID,
                                     request_display_update_handler, NULL);
