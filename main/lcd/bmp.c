@@ -54,32 +54,8 @@ enum bmp_error bmp_header_read(bmp_header *header, uint8_t *data, uint16_t data_
     return BMP_OK;
 }
 
-void fill_err_color(bmp_pixel_color *out_color, uint16_t x, uint16_t y) {
-    if (x % 4 < 2) {
-        if (y % 4 < 2) {
-            out_color->blue = 0x00;
-            out_color->green = 0x00;
-            out_color->red = 0x00;
-        } else {
-            out_color->blue = 0xff;
-            out_color->green = 0xff;
-            out_color->red = 0xff;
-        }
-    } else {
-        if (y % 4 < 2) {
-            out_color->blue = 0xff;
-            out_color->green = 0xff;
-            out_color->red = 0xff;
-        } else {
-            out_color->blue = 0x00;
-            out_color->green = 0x00;
-            out_color->red = 0x00;
-        }
-    }
-}
-
-void
-bmp_get_pixel_from_line(bmp_pixel_color *out_color, bmp_header *img_header, RGBQUAD *colors, uint8_t *data, uint16_t x,
+enum bmp_error
+bmp_get_pixel_from_line(pixel_color *out_color, bmp_header *img_header, RGBQUAD *colors, uint8_t *data, uint16_t x,
                         uint16_t y) {
     if (img_header->biBitCount == 1 || img_header->biBitCount == 4
         || img_header->biBitCount == 8) {
@@ -121,12 +97,13 @@ bmp_get_pixel_from_line(bmp_pixel_color *out_color, bmp_header *img_header, RGBQ
         out_color->green = pixel_data[x].green;
         out_color->red = pixel_data[x].red;
     } else {
-        // not supported
-        fill_err_color(out_color, x, y);
+        return BMP_ERROR;
     }
+
+    return BMP_OK;
 }
 
-void bmp_get_pixel(bmp_pixel_color *out_color, bmp_img_common *bmp_img, uint16_t x, uint16_t y) {
+void bmp_get_pixel(pixel_color *out_color, bmp_img_common *bmp_img, uint16_t x, uint16_t y) {
     // get pixel color
     const size_t offset = (bmp_img->img_header.biHeight > 0 ? bmp_img->img_header.biHeight - 1 : 0);
     const uint16_t y_index = abs(offset - y);
@@ -203,8 +180,8 @@ int bmp_read_file_lines(bmp_img_file_common *bmp_img, uint16_t start_y, uint16_t
     }
 }
 
-void
-bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file) {
+enum bmp_error
+bmp_file_get_pixel(pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file) {
     // data not in buff
     uint16_t pad_line_byte = ((bmp_img->img_header.biWidth * bmp_img->img_header.biBitCount + 31) & ~31) >> 3;
     if (y < bmp_img->data_start_y || y >= bmp_img->data_end_y) {
@@ -214,8 +191,7 @@ bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uin
             bmp_img->data_buff = malloc(buff_size);
             if (bmp_img->data_buff == NULL) {
                 // no memory
-                fill_err_color(out_color, x, y);
-                return;
+                return BMP_ERROR;
             }
 
             bmp_img->data_buff_size = buff_size;
@@ -234,6 +210,8 @@ bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uin
             pad_line_byte;
     bmp_get_pixel_from_line(out_color, &bmp_img->img_header, (RGBQUAD *) bmp_img->color_data,
                             bmp_img->data_buff + line_start_index, x, y);
+
+    return BMP_OK;
 }
 
 void bmp_file_free(bmp_img_file_common *bmp_img) {

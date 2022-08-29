@@ -54,7 +54,6 @@ static void guiTask(void *pvParameter);
 
 static TaskHandle_t xTaskToNotify = NULL;
 static uint32_t boot_cnt = 0;
-const UBaseType_t xArrayIndex = 0;
 
 static uint8_t current_page_index = 3;
 static page_inst_t pages[] = {
@@ -126,7 +125,9 @@ void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     current_page.draw_cb(epd_paint, loop_cnt);
 }
 
-void enter_deep_sleep(int sleep_ts) {
+void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
+    panel_ssd1680_sleep(panel);
+
     esp_sleep_enable_timer_wakeup(sleep_ts * 1000000);
     //esp_sleep_enable_ext1_wakeup(1 << KEY_1_NUM, ESP_EXT1_WAKEUP_ALL_LOW);
 #ifdef SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
@@ -207,7 +208,7 @@ static void guiTask(void *pvParameter) {
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
             //ulTaskGenericNotifyTake()
             //ulTaskNotifyTakeIndexed
-            ulNotificationCount = ulTaskGenericNotifyTake(xArrayIndex, pdTRUE, pdMS_TO_TICKS(60000));
+            ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
             ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
                 continue_time_out_count = 0;
@@ -225,7 +226,7 @@ static void guiTask(void *pvParameter) {
 
         // use full update mode
         bool use_partial_update_mode = loop_cnt - last_full_refresh_loop_cnt < 60
-                                    && current_tick - last_full_refresh_tick < configTICK_RATE_HZ * 1800;
+                                       && current_tick - last_full_refresh_tick < configTICK_RATE_HZ * 1800;
         panel_ssd1680_refresh(&panel, use_partial_update_mode);
         if (!use_partial_update_mode) {
             last_full_refresh_tick = current_tick;
@@ -234,8 +235,11 @@ static void guiTask(void *pvParameter) {
 
         loop_cnt += 1;
 
-        if (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
-            enter_deep_sleep(120);
+        // only in bit mappage should enter deep sleep mode
+        // todo if in others page try to go back to main page
+        if (current_page_index == 3
+            && (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)) {
+            enter_deep_sleep(180, &panel);
         }
     }
 
@@ -252,7 +256,7 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
     if (BIKE_REQUEST_UPDATE_DISPLAY_EVENT == event_base) {
         //ESP_LOGI(TAG, "request for update...");
         int *full_update = (int *) event_data;
-        xTaskGenericNotify(xTaskToNotify, xArrayIndex, *full_update,
+        xTaskGenericNotify(xTaskToNotify, 0, *full_update,
                            eIncrement, NULL);
     }
 }

@@ -606,7 +606,10 @@ panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, u
 
 esp_err_t panel_ssd1680_sleep(lcd_ssd1680_panel_t *panel) {
     // enter deep sleep mode
-    lcd_cmd(panel, SSD1680_CMD_DEEP_SLEEP_MODE, (uint8_t[]) {0x011}, 1);
+    // 0x01 deep sleep mode 1 ram保存
+    // 0x11 deep sleep mode 2 ram不保存
+    // deep sleep mode 需要HWRESET唤醒
+    lcd_cmd(panel, SSD1680_CMD_DEEP_SLEEP_MODE, (uint8_t[]) {0x11}, 1);
     ESP_LOGI(TAG, "ssd1680 enter sleep mode");
     return ESP_OK;
 }

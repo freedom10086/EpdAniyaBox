@@ -3,7 +3,11 @@
 #include <string.h>
 #include "epdpaint.h"
 #include "bmp.h"
+#include "jpg.h"
 #include "bike_common.h"
+#include "esp_log.h"
+
+#define TAG "epd_paint"
 
 void epd_paint_init(epd_paint_t *epd_paint, unsigned char *image, int width, int height) {
     epd_paint->rotate = ROTATE_0;
@@ -327,7 +331,7 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
         epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
     } else {
         bmp_img_common *bmp_img = (bmp_img_common *) bmp_data;
-        bmp_pixel_color out_color;
+        pixel_color out_color;
         uint8_t gray_color;
 
         uint16_t end_x = min(x + width, epd_paint->width);
@@ -350,6 +354,30 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
     }
 }
 
+void fill_err_color(pixel_color *out_color, uint16_t x, uint16_t y) {
+    if (x % 4 < 2) {
+        if (y % 4 < 2) {
+            out_color->blue = 0x00;
+            out_color->green = 0x00;
+            out_color->red = 0x00;
+        } else {
+            out_color->blue = 0xff;
+            out_color->green = 0xff;
+            out_color->red = 0xff;
+        }
+    } else {
+        if (y % 4 < 2) {
+            out_color->blue = 0xff;
+            out_color->green = 0xff;
+            out_color->red = 0xff;
+        } else {
+            out_color->blue = 0x00;
+            out_color->green = 0x00;
+            out_color->red = 0x00;
+        }
+    }
+}
+
 void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, int colored) {
     bmp_img_file_common bmpHeader;
     enum bmp_error err = bmp_header_read_file(&bmpHeader, file);
@@ -359,7 +387,7 @@ void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width,
         epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
         epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
     } else {
-        bmp_pixel_color out_color;
+        pixel_color out_color;
         uint8_t gray_color;
 
         uint16_t end_x = min(x + width, epd_paint->width);
@@ -368,9 +396,19 @@ void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width,
         uint16_t end_y = min(y + height, epd_paint->height);
         end_y = min(end_y, abs(bmpHeader.img_header.biWidth));
 
+        bool error = false;
+
         for (int j = y; j < end_y; ++j) {
             for (int i = x; i < end_x; ++i) {
-                bmp_file_get_pixel(&out_color, &bmpHeader, (i - x), (j - y), file);
+                if (!error) {
+                    enum bmp_error pixel_error = bmp_file_get_pixel(&out_color, &bmpHeader, (i - x), (j - y), file);
+                    if (pixel_error != BMP_OK) {
+                        error = true;
+                    }
+                }
+                if (error) {
+                    fill_err_color(&out_color, (i - x), (j - y));
+                }
                 // rgb 30% 50% 20%
                 gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
                 if (!colored) {
@@ -382,6 +420,61 @@ void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width,
     }
 
     bmp_file_free(&bmpHeader);
+}
+
+void
+epd_paint_draw_jpg_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, uint16_t file_size,
+                        int colored) {
+    jpg_t jpg_header;
+    enum jpg_err err = jpg_header_read_file(&jpg_header, file);
+    if (err != JPG_OK) {
+        // not valid bmp pic just draw rec
+        epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
+        epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
+        epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
+    } else {
+        uint16_t end_x = min(x + width, epd_paint->width);
+        end_x = min(end_x, jpg_header.width);
+
+        uint16_t end_y = min(y + height, epd_paint->height);
+        end_y = min(end_y, jpg_header.height);
+
+        jpg_header.pixel = NULL;
+
+        int i, j;
+        pixel_color out_color;
+        uint8_t gray_color;
+        bool error = false;
+
+        for (j = y; j < end_y; ++j) {
+            for (i = x; i < end_x; ++i) {
+                if (!error) {
+                    enum jpg_err get_pixel_err = jpg_file_get_pixel(&out_color, &jpg_header, (i - x), (j - y), file,
+                                                                    file_size);
+                    if (get_pixel_err != JPG_OK) {
+                        ESP_LOGW(TAG, "jpg get pixel error occurs x:%d y:%d", (i - x), (j - y));
+                        error = true;
+                    }
+                }
+
+                if (error) {
+                    fill_err_color(&out_color, (i - x), (j - y));
+                }
+
+                // rgb 30% 50% 20%
+                // ESP_LOGW(TAG, "out color r:%d g:%d b:%d", out_color.red, out_color.green, out_color.blue);
+                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
+                if (!colored) {
+                    gray_color = 255 - gray_color;
+                }
+
+                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
+            }
+        }
+        jpg_file_free(&jpg_header);
+    }
+
+
 }
 
 /* END OF FILE */

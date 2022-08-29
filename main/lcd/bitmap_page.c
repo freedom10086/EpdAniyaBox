@@ -25,6 +25,8 @@
 #include "tools/encode.h"
 #include "epdpaint.h"
 #include "key.h"
+#include "jpg.h"
+#include "bmp.h"
 
 #include "bitmap_page.h"
 #include "display.h"
@@ -32,6 +34,7 @@
 #include "epd_lcd_ssd1680.h"
 #include "static/static.h"
 #include <dirent.h>
+#include <esp_check.h>
 #include "esp_vfs.h"
 
 #include "wifi/my_file_server_common.h"
@@ -44,7 +47,7 @@
 #define IS_FILE_EXT(filename, ext) \
     (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
-static uint8_t current_bitmap_page_index = 0;
+RTC_DATA_ATTR static uint8_t current_bitmap_page_index = 0;
 
 void testBmp(uint8_t *data, uint16_t data_len) {
     //bmp_header *bmpHeader = (bmp_header *) (aniya_200_1_bmp_start);
@@ -107,23 +110,29 @@ void testBmp(uint8_t *data, uint16_t data_len) {
         }
     }
 
-    bmp_pixel_color color;
+    pixel_color color;
     bmp_img_common *bmp_img = (bmp_img_common *) data;
     bmp_get_pixel(&color, bmp_img, 0, 0);
     ESP_LOGI(TAG, "pixel : x:%d, y:%d blue:%d green:%d red:%d", 0, 0, color.blue, color.green, color.red);
 }
 
-void display_file(epd_paint_t *epd_paint, uint32_t loop_cnt, char *file_name) {
-    ESP_LOGI(TAG, "display bmp file %s", file_name);
+void display_file(epd_paint_t *epd_paint, uint32_t loop_cnt, char *file_name, uint16_t file_size) {
+    ESP_LOGI(TAG, "display image file %s", file_name);
     FILE *img_file = fopen(file_name, "r");
     if (img_file == NULL) {
-        ESP_LOGE(TAG, "open bmp file %s failed", file_name);
+        ESP_LOGE(TAG, "open image file %s failed", file_name);
         current_bitmap_page_index = 0;
         bitmap_page_draw(epd_paint, loop_cnt);
         return;
     }
-    epd_paint_draw_bitmap_file(epd_paint, 0, 0, LCD_H_RES, LCD_V_RES, img_file, 1);
-    ESP_LOGI(TAG, "display bmp file %s finish", file_name);
+
+    if (IS_FILE_EXT(file_name, ".bmp")) {
+        epd_paint_draw_bitmap_file(epd_paint, 0, 0, LCD_H_RES, LCD_V_RES, img_file, 1);
+        ESP_LOGI(TAG, "display bmp file %s finish", file_name);
+    } else {
+        epd_paint_draw_jpg_file(epd_paint, 0, 0, LCD_H_RES, LCD_V_RES, img_file, file_size, 1);
+        ESP_LOGI(TAG, "display jpg file %s finish", file_name);
+    }
     fclose(img_file);
 }
 
@@ -183,7 +192,7 @@ void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
                     continue;
                 }
 
-                if (!IS_FILE_EXT(entry->d_name, ".bmp")) {
+                if (!IS_FILE_EXT(entry->d_name, ".bmp") && !IS_FILE_EXT(entry->d_name, ".jpg")) {
                     continue;
                 }
 
@@ -191,7 +200,7 @@ void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
                     // finded
                     finded = true;
                     strlcpy(entrypath + dirpath_len, entry->d_name, sizeof(entrypath) - dirpath_len);
-                    display_file(epd_paint, loop_cnt, entrypath);
+                    display_file(epd_paint, loop_cnt, entrypath, entry_stat.st_size);
                     break;
                 }
 

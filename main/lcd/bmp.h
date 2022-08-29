@@ -6,6 +6,7 @@
 #define BMP_GET_PADDING(a) ((a) % 4)
 
 #include <stdio.h>
+#include "epdpaint.h"
 
 enum bmp_error {
     BMP_NOT_SUPPORTED_FORMAT = -6,
@@ -27,12 +28,6 @@ enum bmp_compression_type {
     BI_RLE4,
     BI_BITFIELDS, // (16 & 32)
 };
-
-typedef struct {
-    uint8_t blue;
-    uint8_t green;
-    uint8_t red;
-} bmp_pixel_color;
 
 typedef struct {
     uint8_t blue;
@@ -125,7 +120,7 @@ typedef struct {
 
 enum bmp_error bmp_header_read(bmp_header *header, uint8_t *data, uint16_t data_len);
 
-void bmp_get_pixel(bmp_pixel_color *out_color, bmp_img_common *bmp_img, uint16_t x, uint16_t y);
+void bmp_get_pixel(pixel_color *out_color, bmp_img_common *bmp_img, uint16_t x, uint16_t y);
 
 enum bmp_error bmp_img_read(bmp_img_24 *, const char *);
 
@@ -133,8 +128,7 @@ enum bmp_error bmp_img_read(bmp_img_24 *, const char *);
 
 enum bmp_error bmp_header_read_file(bmp_img_file_common *bmp_img, FILE *img_file);
 
-void
-bmp_file_get_pixel(bmp_pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file);
+enum bmp_error bmp_file_get_pixel(pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_t x, uint16_t y, FILE *img_file);
 
 void bmp_file_free(bmp_img_file_common *bmp_img);
 

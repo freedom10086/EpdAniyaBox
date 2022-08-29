@@ -11,7 +11,6 @@
 #define IF_INVERT_COLOR     0
 
 #include "fonts.h"
-#include "bmp.h"
 
 typedef struct {
     unsigned char *image;
@@ -19,6 +18,12 @@ typedef struct {
     int height;
     int rotate;
 } epd_paint_t;
+
+typedef struct {
+    uint8_t blue;
+    uint8_t green;
+    uint8_t red;
+} pixel_color;
 
 void epd_paint_init(epd_paint_t *epd, unsigned char *image, int width, int height);
 
@@ -58,5 +63,9 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
                            uint16_t data_size, int colored);
 
 void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, int colored);
+
+void
+epd_paint_draw_jpg_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, uint16_t file_size,
+                        int colored);
 
 #endif
