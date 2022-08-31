@@ -64,10 +64,10 @@ enum jpg_err jpg_header_read_file(jpg_t *header, FILE *img_file) {
         if (tag == 0xc0ff || (tag & 0xff) != 0xff) {
             break;
         }
-        ESP_LOGI(TAG, "current tag %x", tag);
+        //ESP_LOGI(TAG, "current tag %x", tag);
         fread(&section_size, sizeof(uint16_t), 1, img_file);
         section_size = (section_size >> 8) | (section_size << 8);
-        ESP_LOGI(TAG, "section size %x", section_size);
+        //ESP_LOGI(TAG, "section size %x", section_size);
         fseek(img_file, section_size - 2, SEEK_CUR);
     }
 
@@ -94,7 +94,7 @@ enum jpg_err jpg_header_read_file(jpg_t *header, FILE *img_file) {
 enum jpg_err
 jpg_file_get_pixel(pixel_color *out_color, jpg_t *jpg_img, uint16_t x, uint16_t y, FILE *img_file, uint16_t file_size) {
     if (jpg_img->pixel == NULL) {
-        ESP_LOGI(TAG, "read jpg file to buff");
+        //ESP_LOGI(TAG, "read jpg file to buff");
         uint8_t *indata = calloc(file_size, sizeof(uint8_t));
         if (indata == NULL) {
             ESP_LOGE(TAG, "Error allocating memory for file");

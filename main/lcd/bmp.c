@@ -187,7 +187,7 @@ bmp_file_get_pixel(pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_
     if (y < bmp_img->data_start_y || y >= bmp_img->data_end_y) {
         // read from buff
         if (bmp_img->data_buff == NULL) {
-            uint16_t buff_size = max(8192 / pad_line_byte * pad_line_byte, pad_line_byte);
+            uint16_t buff_size = max(10240 / pad_line_byte * pad_line_byte, pad_line_byte);
             bmp_img->data_buff = malloc(buff_size);
             if (bmp_img->data_buff == NULL) {
                 // no memory
@@ -200,9 +200,9 @@ bmp_file_get_pixel(pixel_color *out_color, bmp_img_file_common *bmp_img, uint16_
         uint32_t start_tck = xTaskGetTickCount();
         uint16_t lines = min(abs(bmp_img->img_header.biHeight) - y, bmp_img->data_buff_size / pad_line_byte);
 
-        ESP_LOGI(TAG, "read lines from %d to %d buff_size: %d", y, y + lines, bmp_img->data_buff_size);
         int read_bytes = bmp_read_file_lines(bmp_img, y, lines, img_file);
-        ESP_LOGI(TAG, "read %d cost %ldms", read_bytes, pdTICKS_TO_MS(xTaskGetTickCount() - start_tck));
+        ESP_LOGI(TAG, "read lines from %d to %d buff_size:%d, read byte:%d cost %ldms",
+                 y, y + lines, bmp_img->data_buff_size, read_bytes, pdTICKS_TO_MS(xTaskGetTickCount() - start_tck));
     }
 
     uint32_t line_start_index =

@@ -58,7 +58,6 @@ typedef struct {
   uint8_t is_chinese;
 } sFONT;
 
-extern sFONT Font36;
 extern sFONT Font32;
 extern sFONT Font24;
 extern sFONT Font20;

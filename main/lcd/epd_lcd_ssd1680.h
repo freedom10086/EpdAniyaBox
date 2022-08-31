@@ -21,7 +21,6 @@ typedef struct {
     int reset_gpio_num; /*!< GPIO used to reset the LCD panel, set to -1 if it's not used */
     bool reset_level;
     bool _using_partial_mode;
-    bool _initial_refresh; // is first refresh
 
     int _current_mem_area_start_x;
     int _current_mem_area_end_x;

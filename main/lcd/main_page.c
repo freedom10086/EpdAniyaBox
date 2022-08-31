@@ -20,6 +20,7 @@
 #include "bike_common.h"
 #include "main_page.h"
 #include "epdpaint.h"
+#include "view/digi_view.h"
 
 
 /*********************
@@ -34,36 +35,20 @@ static main_page_data_t main_page_data = {
 
 static char draw_text_buf[20] = {0};
 
-static int draw_speed_area(epd_paint_t *epd_paint, int y) {
+static int draw_speed_area(epd_paint_t *epd_paint, int y, uint32_t loop_cnt) {
     // speed
     float wheel_speed = main_page_data.wheel_speed;
+    uint8_t speed_start_x_1 = LCD_H_RES / 2 - 20 * 2;
+    digi_view_t *temp_label = digi_view_create(speed_start_x_1, y, 20, 5, 2);
     if (main_page_data.wheel_speed_valid) {
-        if (wheel_speed > 999.9) {
-            wheel_speed = 999.9f;
-        }
-        sprintf(draw_text_buf, "%02d", (int) wheel_speed);
+        digi_view_set_text(temp_label, (int) wheel_speed, (int) (wheel_speed * 100) % 100,
+                           (int) wheel_speed > 9 ? 1 : 2);
     } else {
-        sprintf(draw_text_buf, "00");
+        digi_view_set_text(temp_label, 0, 0, 2);
     }
-    uint8_t speed_start_x_1 = LCD_H_RES / 2 - 6 - Font36.Width * 2;
-    epd_paint_draw_string_at(epd_paint, speed_start_x_1, y, draw_text_buf, &Font36, 1);
 
-    // speed point
-    uint8_t start_speed_point_x = speed_start_x_1 + Font36.Width * strlen(draw_text_buf) + 3;
-    epd_paint_draw_filled_rectangle(epd_paint, start_speed_point_x + 4, y + Font36.Height - 5,
-                                    start_speed_point_x,
-                                    y + Font36.Height - 1, 1);
-
-    if (main_page_data.wheel_speed_valid) {
-        if (strlen(draw_text_buf) == 2) {
-            sprintf(draw_text_buf, "%02d", (int)(wheel_speed * 100) % 100);
-        } else {
-            sprintf(draw_text_buf, "%d", (int)(wheel_speed * 10) % 10);
-        }
-    } else {
-        sprintf(draw_text_buf, "00");
-    }
-    epd_paint_draw_string_at(epd_paint, start_speed_point_x + 6, y, draw_text_buf, &Font36, 1);
+    digi_view_draw(temp_label, epd_paint, loop_cnt);
+    digi_view_deinit(temp_label);
 
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + 12, "k", &Font8, 1);
     epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font8.Width - 4, y + Font8.Height + 12, "m", &Font8, 1);
@@ -128,11 +113,12 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else {
         sprintf(draw_text_buf, "T:--");
     }
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(draw_text_buf), y - 2, draw_text_buf, &Font16_2, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(draw_text_buf), y - 2, draw_text_buf,
+                             &Font16_2, 1);
     epd_paint_draw_horizontal_line(epd_paint, 0, y + 16, LCD_H_RES, 1);
 
     y += 22;
-    y = draw_speed_area(epd_paint, y);
+    y = draw_speed_area(epd_paint, y, loop_cnt);
 
     y += 18;
     epd_paint_draw_horizontal_line(epd_paint, 0, y, LCD_H_RES, 1);

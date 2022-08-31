@@ -192,7 +192,6 @@ esp_err_t new_panel_ssd1680(lcd_ssd1680_panel_t *panel,
         dc_gpio = io_config->dc_gpio_num;
     }
 
-    panel->_initial_refresh = true;
     return ESP_OK;
 
     err:
@@ -251,7 +250,7 @@ static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
             if (!gpio_get_level(ssd1680->busy_gpio_num)) {
                 break;
             }
-            uint32_t ulNotificationValueCount = ulTaskNotifyTakeIndexed(0, pdTRUE, pdMS_TO_TICKS(150));
+            uint32_t ulNotificationValueCount = ulTaskNotifyTakeIndexed(0, pdTRUE, pdMS_TO_TICKS(500));
             if (ulNotificationValueCount > 0) {
                 ESP_LOGI(TAG, "get busy isr result... exit wait");
             } else {
@@ -278,7 +277,7 @@ void reset_panel_state(lcd_ssd1680_panel_t *panel) {
 }
 
 esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel) {
-    ESP_LOGI(TAG, "lcd panel start hardware reset.");
+    //ESP_LOGI(TAG, "lcd panel start hardware reset.");
 
     // perform hardware reset
     if (panel->reset_gpio_num >= 0) {
@@ -298,7 +297,7 @@ esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel) {
 }
 
 esp_err_t panel_ssd1680_sw_reset(lcd_ssd1680_panel_t *panel) {
-    ESP_LOGI(TAG, "lcd panel start software reset.");
+    //ESP_LOGI(TAG, "lcd panel start software reset.");
 
     reset_panel_state(panel);
     // sw reset
@@ -369,7 +368,7 @@ esp_err_t update_full(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
 #endif
     wait_for_busy(ssd1680);
-    // ESP_LOGI(TAG, "ssd1680 full refresh success..");
+    ESP_LOGI(TAG, "ssd1680 full refresh success..");
     return ESP_OK;
 }
 
@@ -383,7 +382,7 @@ esp_err_t update_part(lcd_ssd1680_panel_t *ssd1680) {
     lcd_cmd(ssd1680, SSD1680_CMD_MASTER_ACTIVATION, NULL, 0);
 #endif
     wait_for_busy(ssd1680);
-    // ESP_LOGI(TAG, "ssd1680 part refresh success..");
+    ESP_LOGI(TAG, "ssd1680 part refresh success..");
     return ESP_OK;
 }
 
@@ -408,14 +407,12 @@ esp_err_t panel_ssd1680_clear_display(lcd_ssd1680_panel_t *panel, uint8_t color)
 //    }
 
     panel_ssd1680_refresh(panel, false);
+    ESP_LOGI(TAG, "ssd1680 clear display ...");
     return ESP_OK;
 }
 
 esp_err_t pre_init(lcd_ssd1680_panel_t *panel) {
-
     ESP_LOGI(TAG, "ssd1680 start for init ...");
-    // HW Reset
-    // panel_ssd1680_reset(panel);
 
     // SW Reset by Command 0x12
     wait_for_busy(panel);
@@ -571,24 +568,27 @@ esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int
 }
 
 esp_err_t panel_ssd1680_refresh(lcd_ssd1680_panel_t *panel, bool partial_update_mode) {
-    ESP_LOGI(TAG, "ssd1680 request for refresh mode %d", partial_update_mode);
+    ESP_LOGI(TAG, "ssd1680 request for refresh mode %s", partial_update_mode ? "partial" : "full");
     if (partial_update_mode) {
+        if (!panel->_using_partial_mode) {
+            panel_ssd1680_init_partial(panel);
+        }
         panel_ssd1680_refresh_area(panel, 0, 0, LCD_H_RES, LCD_V_RES);
     } else {
         if (panel->_using_partial_mode) {
             panel_ssd1680_init_full(panel);
         }
         update_full(panel);
-        panel->_initial_refresh = false;
     }
     return ESP_OK;
 }
 
 esp_err_t
 panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, uint16_t end_x, uint16_t end_y) {
-    if (panel->_initial_refresh) {
-        return panel_ssd1680_refresh(panel, false); // initial update needs be full update
+    if (!panel->_using_partial_mode) {
+        panel_ssd1680_init_partial(panel);
     }
+
     if (x < 0) x = 0;
     if (end_x > LCD_H_RES) end_x = LCD_H_RES;
     if (y < 0) y = 0;
@@ -597,9 +597,7 @@ panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, u
     // make x1, w1 multiple of 8
     if (end_x % 8 > 0) end_x += 8 - end_x % 8;
     x -= x % 8;
-    if (!panel->_using_partial_mode) panel_ssd1680_init_partial(panel);
     set_mem_area(panel, x, y, end_x, end_y);
-    //set_mem_pointer(panel, x, y);
     update_part(panel);
     return ESP_OK;
 }

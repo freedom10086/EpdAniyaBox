@@ -24,6 +24,7 @@
 #include "test_page.h"
 #include "info_page.h"
 #include "bitmap_page.h"
+#include "temperature_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 #include "key.h"
@@ -55,7 +56,9 @@ static void guiTask(void *pvParameter);
 static TaskHandle_t xTaskToNotify = NULL;
 static uint32_t boot_cnt = 0;
 
-static uint8_t current_page_index = 3;
+static int8_t pre_page_index = -1;
+static int8_t current_page_index = -1;
+
 static page_inst_t pages[] = {
         [0] = {
                 .page_name = "main_page",
@@ -74,6 +77,13 @@ static page_inst_t pages[] = {
                 .page_name = "bitmap_page",
                 .draw_cb = bitmap_page_draw,
                 .key_click_handler = bitmap_page_key_click_handle,
+        },
+        [4] = {
+                .page_name = "temperature_page",
+                .draw_cb = temperature_page_draw,
+                .key_click_handler = temperature_page_key_click_handle,
+                //.on_create_page = temperature_page_on_create,
+                //.on_destroy_page = temperature_page_on_destroy
         }
 };
 
@@ -116,8 +126,32 @@ bool spi_driver_init(int host,
     return ESP_OK != ret;
 }
 
-void switch_page() {
+void switch_page(int8_t dest_page_index) {
+    if (current_page_index == dest_page_index) {
+        return;
+    }
+    if (dest_page_index < 0) {
+        ESP_LOGE(TAG, "dest page is invalid %d", dest_page_index);
+        return;
+    }
 
+    ESP_LOGI(TAG, "page switch from %s to %s ",
+             current_page_index >= 0 ? pages[current_page_index].page_name : "empty",
+             pages[dest_page_index].page_name);
+
+    // new page on create
+    if (pages[dest_page_index].on_create_page != NULL) {
+        pages[dest_page_index].on_create_page(NULL);
+        ESP_LOGI(TAG, "page %s on create", pages[dest_page_index].page_name);
+    }
+    pre_page_index = current_page_index;
+    current_page_index = dest_page_index;
+
+    // old page destroy
+    if (pre_page_index >= 0 && pages[pre_page_index].on_destroy_page != NULL) {
+        pages[pre_page_index].on_destroy_page(NULL);
+        ESP_LOGI(TAG, "page %s on destroy", pages[pre_page_index].page_name);
+    }
 }
 
 void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
@@ -149,6 +183,8 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
 }
 
 static void guiTask(void *pvParameter) {
+    switch_page(4);
+
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 
     spi_driver_init(TFT_SPI_HOST,
@@ -177,8 +213,6 @@ static void guiTask(void *pvParameter) {
 
     ESP_LOGI(TAG, "Reset SSD1680 panel driver");
     panel_ssd1680_reset(&panel);
-    panel_ssd1680_init_full(&panel);
-    // panel_ssd1680_init_partial(&panel);
 
     // for test
     epd_paint_t *epd_paint = malloc(sizeof(epd_paint_t));
@@ -193,8 +227,11 @@ static void guiTask(void *pvParameter) {
     epd_paint_init(epd_paint, image, LCD_H_RES, LCD_V_RES);
     epd_paint_clear(epd_paint, 0);
 
-    panel_ssd1680_clear_display(&panel, 0xff);
-    panel_ssd1680_init_partial(&panel);
+    panel_ssd1680_init_full(&panel);
+    if (boot_cnt - 1 % 10 == 0) {
+        // every 10 boot clear one display
+        panel_ssd1680_clear_display(&panel, 0xff);
+    }
 
     static uint32_t loop_cnt = 1;
     uint32_t last_full_refresh_loop_cnt = loop_cnt;
@@ -206,8 +243,6 @@ static void guiTask(void *pvParameter) {
     while (1) {
         // not first loop
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
-            //ulTaskGenericNotifyTake()
-            //ulTaskNotifyTakeIndexed
             ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
             ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
@@ -222,11 +257,21 @@ static void guiTask(void *pvParameter) {
         current_tick = xTaskGetTickCount();
 
         draw_page(epd_paint, loop_cnt);
-        panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
 
-        // use full update mode
-        bool use_partial_update_mode = loop_cnt - last_full_refresh_loop_cnt < 60
+        // use partial update mode
+        // less continue 60 times partial refresh mode or last full update time less 30min and not first loop
+        bool use_partial_update_mode = loop_cnt != 1
+                                       && loop_cnt - last_full_refresh_loop_cnt < 60
                                        && current_tick - last_full_refresh_tick < configTICK_RATE_HZ * 1800;
+        if (panel._using_partial_mode != use_partial_update_mode) {
+            if (use_partial_update_mode) {
+                panel_ssd1680_init_partial(&panel);
+            } else {
+                panel_ssd1680_init_full(&panel);
+            }
+        }
+
+        panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, use_partial_update_mode);
         if (!use_partial_update_mode) {
             last_full_refresh_tick = current_tick;
@@ -235,11 +280,11 @@ static void guiTask(void *pvParameter) {
 
         loop_cnt += 1;
 
-        // only in bit mappage should enter deep sleep mode
+        // only in bitmap page should enter deep sleep mode
         // todo if in others page try to go back to main page
         if (current_page_index == 3
             && (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)) {
-            enter_deep_sleep(180, &panel);
+            enter_deep_sleep(120, &panel);
         }
     }
 

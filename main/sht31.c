@@ -101,6 +101,7 @@ static const char *TAG = "sht-31";
 
 ESP_EVENT_DEFINE_BASE(BIKE_TEMP_HUM_SENSOR_EVENT);
 
+static bool sht31_inited = false;
 sht31_t sht31;
 bool data_updated = false;
 
@@ -213,7 +214,15 @@ void sht31_reset() {
 }
 
 sht31_t *sht31_init(esp_event_loop_handle_t event_loop_hdl) {
-    ESP_ERROR_CHECK(i2c_master_init());
+    if (sht31_inited) {
+        return &sht31;
+    }
+
+    esp_err_t iic_err = i2c_master_init();
+    if (iic_err != ESP_OK) {
+        ESP_LOGE(TAG, "I2C initialized failed %d %s", iic_err, esp_err_to_name(iic_err));
+        return &sht31;
+    }
     ESP_LOGI(TAG, "I2C initialized successfully");
 
     sht31.event_loop_hdl = event_loop_hdl;
@@ -231,6 +240,7 @@ sht31_t *sht31_init(esp_event_loop_handle_t event_loop_hdl) {
         return NULL;
     }
 
+    sht31_inited = true;
     return &sht31;
 }
 
@@ -279,4 +289,5 @@ bool sht31_read_temp_hum() {
 void sht31_deinit() {
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");
+    sht31_inited = false;
 }
