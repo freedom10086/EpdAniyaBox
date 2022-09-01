@@ -93,7 +93,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
             humility = 99;
         }
         epd_paint_draw_string_at(epd_paint, 183, 172, (char *) hum_f, &Font_HZK16, 1);
-        digi_view_set_text(hum_label, (int) humility, (int) (temperature * 10 + 0.5f) % 10, 1);
+        digi_view_set_text(hum_label, (int) humility, (int) (humility * 10 + 0.5f) % 10, 1);
         digi_view_draw(hum_label, epd_paint, loop_cnt);
     } else {
         digi_view_draw_ee(temp_label, epd_paint, 3, loop_cnt);

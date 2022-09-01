@@ -25,6 +25,7 @@
 #include "battery.h"
 #include "my_http_server.h"
 #include "my_file_server_common.h"
+#include "bike_common.h"
 
 static const char *TAG = "http_server";
 
@@ -207,16 +208,8 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
         }
     }
 
-    // Initialize NVS.
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // OTA app partition table has a smaller NVS partition size than the non-OTA
-        // partition table. This size mismatch may cause NVS initialization to fail.
-        // If this happens, we erase NVS partition and initialize NVS again.
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(err);
+    ESP_ERROR_CHECK(common_init_nvs());
+
     /* Ensure to disable any WiFi power save mode, this allows best throughput
      * and hence timings for overall OTA operation.
      */
@@ -248,6 +241,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
     ESP_LOGI(TAG, "Writing to partition subtype %d at offset 0x%lx",
              update_partition->subtype, update_partition->address);
 
+    esp_err_t err;
     int binary_file_length = 0;
     /*deal with all receive packet*/
     bool image_header_was_checked = false;

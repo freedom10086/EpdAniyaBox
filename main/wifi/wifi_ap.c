@@ -9,6 +9,7 @@
 
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "bike_common.h"
 
 #include "wifi_ap.h"
 #include "my_http_server.h"
@@ -54,13 +55,7 @@ void print_current_ip_info(esp_netif_ip_info_t info_t) {
 }
 
 void wifi_init_softap() {
-    //Initialize NVS
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
+    ESP_ERROR_CHECK(common_init_nvs());
 
     // 接收系统事件只能用default loop
     esp_event_loop_create_default();

@@ -22,3 +22,5 @@
 
 
 extern esp_event_loop_handle_t event_loop_handle;
+
+esp_err_t common_init_nvs();

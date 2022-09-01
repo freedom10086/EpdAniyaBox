@@ -154,7 +154,7 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
  **********************/
 void app_main() {
     // esp_log_level_set("*", ESP_LOG_WARN);
-    boot_count ++;
+    boot_count++;
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
     if (cause != ESP_SLEEP_WAKEUP_UNDEFINED) {
         ESP_LOGI(TAG, "wake up by cause  %d", cause);
@@ -211,11 +211,6 @@ void app_main() {
     //ws2812_start();
 
     /**
-     * wifi ap
-     */
-    // wifi_init_softap();
-
-    /**
      * key
      */
     key_init();
@@ -223,7 +218,7 @@ void app_main() {
     /**
      * battery detect
      */
-    // battery_init();
+    battery_init();
 
     /**
      * lcd

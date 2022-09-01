@@ -40,7 +40,7 @@ static char info_page_draw_text_buf[64] = {0};
 
 list_view_t *list_view = NULL;
 
-bool wifi_on;
+bool wifi_on = false;
 
 void init_list_view(int y) {
     list_view = list_vew_create(20, y, 120, 80, &Font16);
@@ -80,6 +80,24 @@ bool info_page_key_click(key_event_id_t key_event_type) {
     }
 
     return false;
+}
+
+void info_page_on_create(void *arg) {
+    //ESP_ERR_WIFI_NOT_INIT
+    wifi_mode_t wifi_mode;
+    esp_err_t err = esp_wifi_get_mode(&wifi_mode);
+    ESP_LOGI(TAG, "current wifi mdoe: %d, %d %s", wifi_mode, err, esp_err_to_name(err));
+    if (ESP_ERR_WIFI_NOT_INIT == err) {
+        wifi_on = false;
+    } else {
+        wifi_on = wifi_mode != WIFI_MODE_NULL;
+    }
+    ESP_LOGI(TAG, "current wifi status: %s", wifi_on ? "on" : "off");
+
+    if (!wifi_on) {
+        wifi_init_softap();
+        wifi_on = true;
+    }
 }
 
 void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {

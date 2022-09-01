@@ -67,6 +67,7 @@ static page_inst_t pages[] = {
         [1] = {
                 .page_name = "info_page",
                 .draw_cb = info_page_draw,
+                .on_create_page = info_page_on_create,
                 .key_click_handler = info_page_key_click,
         },
         [2] = {
@@ -82,8 +83,8 @@ static page_inst_t pages[] = {
                 .page_name = "temperature_page",
                 .draw_cb = temperature_page_draw,
                 .key_click_handler = temperature_page_key_click_handle,
-                //.on_create_page = temperature_page_on_create,
-                //.on_destroy_page = temperature_page_on_destroy
+                .on_create_page = temperature_page_on_create,
+                .on_destroy_page = temperature_page_on_destroy
         }
 };
 
@@ -183,7 +184,7 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
 }
 
 static void guiTask(void *pvParameter) {
-    switch_page(4);
+    switch_page(1);
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 

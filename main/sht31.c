@@ -203,7 +203,7 @@ static void sht31_task_entry(void *arg) {
                               &sht31.data, sizeof(sht31_data_t), 100 / portTICK_PERIOD_MS);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(3000));
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
 
@@ -269,8 +269,8 @@ bool sht31_read_temp_hum() {
 
     // simplified (65536 instead of 65535) integer version of:
     // temp = (stemp * 175.0f) / 65535.0f - 45.0f;
-    stemp = ((4375 * stemp) >> 14) - 4500;
-    sht31.data.temp = (float) stemp / 100.0f;
+    // stemp = ((4375 * stemp) >> 14) - 4500;
+    sht31.data.temp = ((float) stemp * 175.0f) / 65535.0f - 45.0f;
 
     uint32_t shum = ((uint32_t) readbuffer[3] << 8) | readbuffer[4];
     if (shum != sht31.raw_hum) {
@@ -280,8 +280,8 @@ bool sht31_read_temp_hum() {
 
     // simplified (65536 instead of 65535) integer version of:
     // humidity = (shum * 100.0f) / 65535.0f;
-    shum = (625 * shum) >> 12;
-    sht31.data.hum = (float) shum / 100.0f;
+    // shum = (625 * shum) >> 12;
+    sht31.data.hum = ((float) shum * 100.0f) / (65536 - 1);
 
     return true;
 }
