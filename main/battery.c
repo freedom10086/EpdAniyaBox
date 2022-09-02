@@ -28,8 +28,22 @@
 #define ADC1_CHAN1          ADC_CHANNEL_1
 #endif
 
-static int adc_raw;
+static int _adc_raw;
 static int _voltage;
+
+// 电压曲线
+uint32_t *battery_curve_data;
+// 电压曲线长度
+size_t battery_curve_size = 0;
+
+static uint32_t default_battery_curve_data[] = {
+        2080, // 100%
+        2000,// 80%
+        1932,// 60%
+        1888,// 40%
+        1852,// 20%
+        1603,// 0%
+};
 
 /**
  * 4208 充电
@@ -138,7 +152,7 @@ esp_err_t add_battery_curve(int v) {
     return ESP_OK;
 }
 
-esp_err_t print_battery_curve(void) {
+esp_err_t load_battery_curve(void) {
     nvs_handle_t my_handle;
     esp_err_t err;
 
@@ -146,30 +160,80 @@ esp_err_t print_battery_curve(void) {
     err = nvs_open(STORAGE_NAMESPACE, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
 
-    size_t required_size = 0;  // value will default to 0, if not set yet in NVS
     // obtain required memory space to store blob being read from NVS
-    err = nvs_get_blob(my_handle, "curve", NULL, &required_size);
+    err = nvs_get_blob(my_handle, "curve", NULL, &battery_curve_size);
     if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) return err;
     printf("battery curve:\n");
-    if (required_size == 0) {
+    if (battery_curve_size == 0) {
         printf("Nothing saved yet!\n");
     } else {
-        uint32_t * battery_curve = malloc(required_size);
-        err = nvs_get_blob(my_handle, "curve", battery_curve, &required_size);
+        battery_curve_data = malloc(battery_curve_size);
+        err = nvs_get_blob(my_handle, "curve", battery_curve_data, &battery_curve_size);
 
         if (err != ESP_OK) {
-            free(battery_curve);
+            free(battery_curve_data);
             return err;
         }
-        for (int i = 0; i < required_size / sizeof(uint32_t); i++) {
-            printf("%d: %ld\n", i + 1, battery_curve[i]);
+        for (int i = 0; i < battery_curve_size / sizeof(uint32_t); i++) {
+            printf("%d: %ld\n", i + 1, battery_curve_data[i]);
+            // pre handle battery curve data after master small or equals to before
+            if (i > 0 && battery_curve_data[i] > battery_curve_data[i - 1]) {
+                battery_curve_data[i] = battery_curve_data[i - 1];
+            }
         }
-        free(battery_curve);
     }
 
     // Close
     nvs_close(my_handle);
     return ESP_OK;
+}
+
+// from 0 - 100, -1 is invalid
+int battery_voltage_to_level(uint32_t input_voltage) {
+    uint32_t curve_count = battery_curve_size / sizeof(uint32_t);
+    if (curve_count <= 2) {
+        return -1;
+    }
+
+    // skip first
+    if (input_voltage >= battery_curve_data[1]) {
+        return 100;
+    } else if (input_voltage <= battery_curve_data[curve_count - 2]) {
+        return 0;
+    }
+
+    // skip last
+    float gap_size = 100.0f / ((float) curve_count - 1 - 2.0f);
+
+    uint32_t finded_idx = curve_count - 2;
+    uint32_t pre_aft_gap_len = 1;
+
+    uint32_t pre = battery_curve_data[curve_count - 2];
+    uint32_t aft = battery_curve_data[curve_count - 1];
+
+    for (int i = 2; i < curve_count - 1; i++) {
+        if (input_voltage >= battery_curve_data[i]) {
+            finded_idx = i;
+            pre = battery_curve_data[i - 1];
+
+            while (i + 1 < curve_count - 1 && battery_curve_data[i + 1] >= battery_curve_data[i]) {
+                pre_aft_gap_len++;
+                i++;
+            }
+
+            aft = battery_curve_data[i];
+            break;
+        }
+    }
+
+    ESP_LOGI(TAG, "voltage: %ld, pre:%ld, after:%ld, idx:%ld, len:%ld", input_voltage, pre, aft, finded_idx,
+             pre_aft_gap_len);
+
+    float level = 100.0f - (float) finded_idx * gap_size -
+                  (pre <= aft ? 0 : ((float) pre - (float) input_voltage) / ((float) pre - (float) aft) * gap_size *
+                                    (float) pre_aft_gap_len);
+
+    return (int) level;
 }
 
 static void battery_task_entry(void *arg) {
@@ -182,7 +246,7 @@ static void battery_task_entry(void *arg) {
     get_battery_curve_status(&battery_curve_status);
     ESP_LOGI(TAG, "battery curve status %ld", battery_curve_status);
     if (battery_curve_status > 0) {
-        print_battery_curve();
+        load_battery_curve();
     } else {
         ESP_LOGI(TAG, "start battery curve");
         err = set_battery_curve_status(1);
@@ -216,11 +280,11 @@ static void battery_task_entry(void *arg) {
     bool do_calibration1 = adc_calibration_init(ADC_UNIT_1, ADC_ATTEN_DB_11, &adc1_cali_handle);
 
     while (1) {
-        ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC1_CHAN1, &adc_raw));
-        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, ADC1_CHAN1, adc_raw);
+        ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC1_CHAN1, &_adc_raw));
+        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, ADC1_CHAN1, _adc_raw);
         if (do_calibration1) {
             int voltage;
-            ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, adc_raw, &voltage));
+            ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, _adc_raw, &voltage));
             ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1 + 1, ADC1_CHAN1, voltage);
             _voltage = voltage;
 
@@ -233,7 +297,7 @@ static void battery_task_entry(void *arg) {
                 }
             }
         }
-        vTaskDelay(pdMS_TO_TICKS(90000));
+        vTaskDelay(pdMS_TO_TICKS(10000));
     }
 
     //Tear Down
@@ -322,10 +386,44 @@ static void adc_calibration_deinit(adc_cali_handle_t handle) {
 #endif
 }
 
+// returen mv
 int battery_get_voltage() {
     return _voltage;
 }
 
-void battery_deinit() {
+int battery_get_level() {
+    uint32_t curve_count = battery_curve_size / sizeof(uint32_t);
+    if (curve_count <= 2) {
+        curve_count = sizeof(default_battery_curve_data) / sizeof(uint32_t);
+        if (_voltage >= default_battery_curve_data[0]) {
+            return 100;
+        } else if (_voltage <= default_battery_curve_data[curve_count - 1]) {
+            return 0;
+        }
 
+        float gap_size = 100.0f / ((float) curve_count - 1);
+        for (int i = 1; i < curve_count - 1; i++) {
+            if (_voltage >= battery_curve_data[i]) {
+
+                uint32_t pre = battery_curve_data[i - 1];
+                uint32_t aft = battery_curve_data[i];
+
+                float level = 100.0f - (float) i * gap_size -
+                              ((float) pre - (float) _voltage) / ((float) pre - (float) aft) * gap_size;
+                return (int)level;
+            }
+        }
+
+        float battery_percent = (float) (_voltage - 1600) * 100.0f / (2080 - 1600);
+        if (battery_percent > 100) {
+            battery_percent = 100;
+        } else if (battery_percent < 0) {
+            battery_percent = 0;
+        }
+        return (int) battery_percent;
+    }
+    return battery_voltage_to_level(_voltage);
+}
+
+void battery_deinit() {
 }

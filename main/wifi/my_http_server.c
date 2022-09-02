@@ -132,7 +132,8 @@ static esp_err_t device_info_handler(httpd_req_t *req) {
     esp_wifi_get_ps(&wifi_ps_type);
 
     *p++ = '{';
-    p += sprintf(p, "\"battery\":%d,", battery_get_voltage());
+    p += sprintf(p, "\"battery_voltage\":%dmv,", battery_get_voltage() * 2);
+    p += sprintf(p, "\"battery_level\":%d%%,", battery_get_level());
     p += sprintf(p, "\"wifi_ps_mode\":%d,", wifi_ps_type);
     p += sprintf(p, "\"message\":\"%s\"", "hello");
     *p++ = '}';

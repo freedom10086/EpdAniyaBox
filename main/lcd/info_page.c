@@ -131,18 +131,13 @@ void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     }
 
     // battery
-    int batteryVoltage = battery_get_voltage();
-    float battery_percent = (float) (batteryVoltage - 1500) * 100.0f / (2080 - 1500);
-    if (battery_percent > 100) {
-        battery_percent = 100;
-    } else if (battery_percent < 0) {
-        battery_percent = 0;
-    }
+    int battery_voltage = battery_get_voltage();
+    int battery_level = battery_get_level();
 
     epd_paint_draw_string_at(epd_paint, 0, y, "battery:", &Font20, 1);
     y += 20;
 
-    sprintf(info_page_draw_text_buf, "%dmv %.2f%%", batteryVoltage * 2, battery_percent);
+    sprintf(info_page_draw_text_buf, "%dmv %d%%", battery_voltage * 2, battery_level);
     epd_paint_draw_string_at(epd_paint, 16, y, info_page_draw_text_buf, &Font16, 1);
     y += 20;
 
