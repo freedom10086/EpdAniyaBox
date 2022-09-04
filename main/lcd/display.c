@@ -25,6 +25,7 @@
 #include "info_page.h"
 #include "bitmap_page.h"
 #include "temperature_page.h"
+#include "upgrade_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 #include "key.h"
@@ -85,6 +86,13 @@ static page_inst_t pages[] = {
                 .key_click_handler = temperature_page_key_click_handle,
                 .on_create_page = temperature_page_on_create,
                 .on_destroy_page = temperature_page_on_destroy
+        },
+        [5] = {
+                .page_name = "upgrade_page",
+                .draw_cb = upgrade_page_draw,
+                .key_click_handler = upgrade_page_key_click_handle,
+                .on_create_page = upgrade_page_on_create,
+                .on_destroy_page = upgrade_page_on_destroy
         }
 };
 
@@ -184,7 +192,7 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
 }
 
 static void guiTask(void *pvParameter) {
-    switch_page(1);
+    switch_page(5);
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
 

@@ -324,9 +324,10 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
                            uint16_t data_size, int colored) {
     bmp_header bmpHeader;
     enum bmp_error err = bmp_header_read(&bmpHeader, bmp_data, data_size);
+    ESP_LOGI(TAG, "draw bit map x:%d y:%d w:%ld h:%ld err:%d", x, y, bmpHeader.biWidth, bmpHeader.biHeight, err);
     if (err != BMP_OK) {
         // not valid bmp pic just draw rec
-        epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
+        epd_paint_draw_rectangle(epd_paint, x, y, x + width, y + height, colored);
         epd_paint_draw_line(epd_paint, x, y, x + width, y + height, colored);
         epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
     } else {
@@ -335,10 +336,12 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
         uint8_t gray_color;
 
         uint16_t end_x = min(x + width, epd_paint->width);
-        end_x = min(end_x, bmpHeader.biWidth);
+        end_x = min(x + bmpHeader.biWidth, epd_paint->width);
 
         uint16_t end_y = min(y + height, epd_paint->height);
-        end_y = min(end_y, abs(bmpHeader.biWidth));
+        end_y = min(y + abs(bmpHeader.biHeight), epd_paint->height);
+
+        //ESP_LOGI(TAG, "draw bit map x:%d y:%d endx:%d endy:%d", x, y, end_x, end_y);
 
         for (int j = y; j < end_y; ++j) {
             for (int i = x; i < end_x; ++i) {
@@ -348,6 +351,7 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
                 if (!colored) {
                     gray_color = 255 - gray_color;
                 }
+                //ESP_LOGI(TAG, "x:%d y:%d color:%d", x, y, gray_color);
                 epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 132 ? 0 : 1);
             }
         }

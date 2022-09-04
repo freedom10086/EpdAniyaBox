@@ -197,8 +197,10 @@ int battery_voltage_to_level(uint32_t input_voltage) {
 
     // skip first
     if (input_voltage >= battery_curve_data[1]) {
+        ESP_LOGI(TAG, "battery level %02f", 100.0f);
         return 100;
     } else if (input_voltage <= battery_curve_data[curve_count - 2]) {
+        ESP_LOGI(TAG, "battery level %02f", 0.0f);
         return 0;
     }
 
@@ -226,13 +228,10 @@ int battery_voltage_to_level(uint32_t input_voltage) {
         }
     }
 
-    ESP_LOGI(TAG, "voltage: %ld, pre:%ld, after:%ld, idx:%ld, len:%ld", input_voltage, pre, aft, finded_idx,
-             pre_aft_gap_len);
-
     float level = 100.0f - (float) finded_idx * gap_size -
                   (pre <= aft ? 0 : ((float) pre - (float) input_voltage) / ((float) pre - (float) aft) * gap_size *
                                     (float) pre_aft_gap_len);
-
+    ESP_LOGI(TAG, "battery level %02f", level);
     return (int) level;
 }
 
@@ -410,7 +409,7 @@ int battery_get_level() {
 
                 float level = 100.0f - (float) i * gap_size -
                               ((float) pre - (float) _voltage) / ((float) pre - (float) aft) * gap_size;
-                return (int)level;
+                return (int) level;
             }
         }
 

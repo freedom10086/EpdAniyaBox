@@ -11,12 +11,13 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
         "zw800.c"
         "sht31.c"
         "nmea_parser.c"
-        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c" "lcd/bitmap_page.c" "lcd/temperature_page.c"
-        "view/list_view.c" "view/digi_view.c"
+        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c" "lcd/bitmap_page.c" "lcd/temperature_page.c" "lcd/upgrade_page.c"
+        "view/list_view.c" "view/digi_view.c" "view/battery_view.c"
         "main.c")
 
 idf_component_register(SRCS ${srcs}
         EMBED_FILES "lcd/HZK16.bin"
         EMBED_FILES "static/favicon.ico" "static/ota.html" "static/upload_script.html"
         EMBED_FILES "static/aniya_200.bmp" "static/aniya_200_1.bmp"
+        EMBED_FILES "static/icon_wifi.bmp" "static/icon_ble.bmp" "static/icon_sat.bmp" "static/icon_upgrade.bmp"
         INCLUDE_DIRS ".")
