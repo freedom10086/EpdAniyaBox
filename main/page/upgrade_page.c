@@ -28,7 +28,7 @@ void upgrade_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 
     char buff[8];
     sprintf(buff, "%.1f%%", 18.99f);
-    epd_paint_draw_string_at(epd_paint, 80, 134, (char *) buff, &Font16_2, 1);
+    epd_paint_draw_string_at(epd_paint, 80, 134, (char *) buff, &Font16, 1);
 }
 
 bool upgrade_page_key_click_handle(key_event_id_t key_event_type) {

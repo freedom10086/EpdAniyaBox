@@ -173,9 +173,9 @@ void epd_paint_draw_string_at(epd_paint_t *epd_paint, int x, int y, const char *
     while (*p_text != 0) {
         if (font->is_chinese) {
             if (*p_text < 128) {
-                epd_paint_draw_char_at(epd_paint, refcolumn, y, (char) *p_text, &Font16_2, colored);
+                epd_paint_draw_char_at(epd_paint, refcolumn, y, (char) *p_text, &Font16, colored);
                 p_text++;
-                refcolumn += Font16_2.Width;
+                refcolumn += Font16.Width;
             } else {
                 chinese_text = ((*p_text) | *(p_text + 1) << 8);
                 epd_paint_draw_chinese_char_at(epd_paint, refcolumn, y, chinese_text, font, colored);
@@ -324,7 +324,7 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
                            uint16_t data_size, int colored) {
     bmp_header bmpHeader;
     enum bmp_error err = bmp_header_read(&bmpHeader, bmp_data, data_size);
-    ESP_LOGI(TAG, "draw bit map x:%d y:%d w:%ld h:%ld err:%d", x, y, bmpHeader.biWidth, bmpHeader.biHeight, err);
+    // ESP_LOGI(TAG, "draw bit map x:%d y:%d w:%ld h:%ld err:%d", x, y, bmpHeader.biWidth, bmpHeader.biHeight, err);
     if (err != BMP_OK) {
         // not valid bmp pic just draw rec
         epd_paint_draw_rectangle(epd_paint, x, y, x + width, y + height, colored);

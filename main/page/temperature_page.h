@@ -1,7 +1,7 @@
 #ifndef TEMPERATURE_PAGE_H
 #define TEMPERATURE_PAGE_H
 
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "key.h"
 
 void temperature_page_on_create(void *args);

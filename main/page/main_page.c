@@ -3,10 +3,7 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include <esp_lcd_panel_vendor.h>
 #include <esp_log.h>
-#include <esp_lcd_panel_io.h>
-#include <esp_lcd_panel_ops.h>
 #include <esp_timer.h>
 
 #include "freertos/FreeRTOS.h"
@@ -14,12 +11,10 @@
 #include "esp_freertos_hooks.h"
 #include "freertos/semphr.h"
 #include "esp_system.h"
-#include "driver/gpio.h"
-#include "driver/spi_master.h"
 
 #include "bike_common.h"
 #include "main_page.h"
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "view/digi_view.h"
 
 
@@ -57,8 +52,8 @@ static int draw_speed_area(epd_paint_t *epd_paint, int y, uint32_t loop_cnt) {
 
     // avg and max speed
     y += 40;
-    epd_paint_draw_string_at(epd_paint, 16, y, "avg:28.1", &Font16_2, 1);
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 16, y, "max:28.1", &Font16_2, 1);
+    epd_paint_draw_string_at(epd_paint, 16, y, "avg:28.1", &Font16, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES / 2 + 16, y, "max:28.1", &Font16, 1);
 
     return y;
 }
@@ -105,7 +100,7 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     }
 
     // gps
-    epd_paint_draw_string_at(epd_paint, 0, y - 2, "G:12", &Font16_2, 1);
+    epd_paint_draw_string_at(epd_paint, 0, y - 2, "G:12", &Font16, 1);
 
     // temperature
     if (main_page_data.temperature_valid) {
@@ -113,8 +108,8 @@ void main_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else {
         sprintf(draw_text_buf, "T:--");
     }
-    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16_2.Width * strlen(draw_text_buf), y - 2, draw_text_buf,
-                             &Font16_2, 1);
+    epd_paint_draw_string_at(epd_paint, LCD_H_RES - Font16.Width * strlen(draw_text_buf), y - 2, draw_text_buf,
+                             &Font16, 1);
     epd_paint_draw_horizontal_line(epd_paint, 0, y + 16, LCD_H_RES, 1);
 
     y += 22;

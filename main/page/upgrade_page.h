@@ -1,7 +1,7 @@
 #ifndef UPGRADE_PAGE_H
 #define UPGRADE_PAGE_H
 
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "key.h"
 
 void upgrade_page_on_create(void *args);

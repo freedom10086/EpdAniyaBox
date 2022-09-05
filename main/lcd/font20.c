@@ -2138,6 +2138,7 @@ sFONT Font20 = {
   14, /* Width */
   20, /* Height */
   ' ',
+  0,
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

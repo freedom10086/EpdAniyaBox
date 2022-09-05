@@ -8,6 +8,7 @@
 #include "esp_event.h"
 #include "driver/i2c.h"
 
+#include "bike_common.h"
 #include "sht31.h"
 
 #define I2C_MASTER_NUM              0
@@ -102,8 +103,7 @@ static const char *TAG = "sht-31";
 ESP_EVENT_DEFINE_BASE(BIKE_TEMP_HUM_SENSOR_EVENT);
 
 static bool sht31_inited = false;
-sht31_t sht31;
-bool data_updated = false;
+static sht31_t sht31;
 
 /**
  * @brief i2c master initialization
@@ -164,7 +164,7 @@ static esp_err_t i2c_write_data(uint16_t reg_addr, uint8_t data) {
     return ret;
 }
 
-static uint8_t crc8(const uint8_t *data, int len) {
+static uint8_t crc8(const uint8_t *data, uint8_t len) {
     const uint8_t POLYNOMIAL = 0x31;
     uint8_t crc = 0xFF;
 
@@ -179,30 +179,36 @@ static uint8_t crc8(const uint8_t *data, int len) {
 }
 
 static void sht31_task_entry(void *arg) {
-    sht31_reset();
-    vTaskDelay(10);
+    uint8_t failed_cnt = 0;
     uint8_t data[3];
+
+    sht31_reset();
+    sht31_start:
     i2c_read(SHT31_READSTATUS, data, 3);
     if (data[2] != crc8(data, 2)) {
         ESP_LOGW(TAG, "read status crc check failed!");
+        failed_cnt++;
+        if (failed_cnt >= 3) {
+            ESP_LOGE(TAG, "read sht31 status failed for 3 times...");
+            post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_INIT_FAILED);
+            vTaskDelete(NULL);
+        }
+        vTaskDelay(pdMS_TO_TICKS(3));
+        goto sht31_start;
     } else {
         ESP_LOGI(TAG, "Status %X %X", data[0], data[1]);
         ESP_LOGI(TAG, "HEAT Status %d", (data[0] >> 5) & 0x01);
     }
 
     i2c_write_cmd(SHT31_CLEARSTATUS);
-    vTaskDelay(10);
-
+    vTaskDelay(pdMS_TO_TICKS(10));
     while (1) {
         if (sht31_read_temp_hum()) {
             //ESP_LOGI(TAG, "temp %f, hum:%f", sht31.data.temp, sht31.data.hum);
+            post_event_data(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_UPDATE, &sht31.data, sizeof(sht31_data_t));
+        } else {
+            post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_READ_FAILED);
         }
-
-        if (data_updated) {
-            esp_event_post_to(sht31.event_loop_hdl, BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_UPDATE,
-                              &sht31.data, sizeof(sht31_data_t), 100 / portTICK_PERIOD_MS);
-        }
-
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
@@ -210,22 +216,19 @@ static void sht31_task_entry(void *arg) {
 void sht31_reset() {
     ESP_LOGI(TAG, "Reset Sht31...");
     i2c_write_cmd(SHT31_SOFTRESET);
-    vTaskDelay(pdMS_TO_TICKS(2));
+    vTaskDelay(pdMS_TO_TICKS(10));
 }
 
-sht31_t *sht31_init(esp_event_loop_handle_t event_loop_hdl) {
+void sht31_init() {
     if (sht31_inited) {
-        return &sht31;
+        return;
     }
-
     esp_err_t iic_err = i2c_master_init();
     if (iic_err != ESP_OK) {
         ESP_LOGE(TAG, "I2C initialized failed %d %s", iic_err, esp_err_to_name(iic_err));
-        return &sht31;
+        return;
     }
     ESP_LOGI(TAG, "I2C initialized successfully");
-
-    sht31.event_loop_hdl = event_loop_hdl;
 
     /* Create NMEA Parser task */
     BaseType_t err = xTaskCreate(
@@ -237,19 +240,16 @@ sht31_t *sht31_init(esp_event_loop_handle_t event_loop_hdl) {
             NULL);
     if (err != pdTRUE) {
         ESP_LOGE(TAG, "create sht31 task failed");
-        return NULL;
+        return;
     }
-
     sht31_inited = true;
-    return &sht31;
 }
 
 bool sht31_read_temp_hum() {
     uint8_t readbuffer[6];
-    data_updated = false;
 
-    i2c_write_cmd(SHT31_MEAS_HIGHREP);
-    vTaskDelay(pdMS_TO_TICKS(20));
+    i2c_write_cmd(SHT31_MEAS_MEDREP); // med 10, high 20
+    vTaskDelay(pdMS_TO_TICKS(10));
 
     i2c_read(SHT31_FETCH_DATA, readbuffer, 6);
 
@@ -263,7 +263,6 @@ bool sht31_read_temp_hum() {
 
     int32_t stemp = (int32_t) (((uint32_t) readbuffer[0] << 8) | readbuffer[1]);
     if (stemp != sht31.raw_temp) {
-        data_updated = true;
         sht31.raw_temp = stemp;
     }
 
@@ -274,7 +273,6 @@ bool sht31_read_temp_hum() {
 
     uint32_t shum = ((uint32_t) readbuffer[3] << 8) | readbuffer[4];
     if (shum != sht31.raw_hum) {
-        data_updated = true;
         sht31.raw_hum = shum;
     }
 

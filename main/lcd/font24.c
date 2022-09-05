@@ -2516,6 +2516,7 @@ sFONT Font24 = {
   17, /* Width */
   24, /* Height */
   ' ',
+  0,
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

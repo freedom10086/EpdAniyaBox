@@ -483,6 +483,7 @@ sFONT Font32 = {
         16, /* Width */
         32, /* Height */
         ' ',
+        0,
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -1000,6 +1000,7 @@ sFONT Font8 = {
   5, /* Width */
   8, /* Height */
   ' ',
+  0,
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -1,8 +1,8 @@
 #ifndef MAIN_PAGE_H
 #define MAIN_PAGE_H
 
-#include "epd_lcd_ssd1680.h"
-#include "epdpaint.h"
+#include "lcd/epd_lcd_ssd1680.h"
+#include "lcd/epdpaint.h"
 
 typedef struct {
     float temperature;

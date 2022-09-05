@@ -1,7 +1,7 @@
 #ifndef BITMAP_PAGE_H
 #define BITMAP_PAGE_H
 
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 
 void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt);
 

@@ -20,16 +20,11 @@
 #include "driver/rtc_io.h"
 
 #include "bike_common.h"
-#include "main_page.h"
-#include "test_page.h"
-#include "info_page.h"
-#include "bitmap_page.h"
-#include "temperature_page.h"
-#include "upgrade_page.h"
 #include "epd_lcd_ssd1680.h"
 #include "epdpaint.h"
 #include "key.h"
 #include "display.h"
+#include "page_manager.h"
 
 /*********************
  *      DEFINES
@@ -56,45 +51,6 @@ static void guiTask(void *pvParameter);
 
 static TaskHandle_t xTaskToNotify = NULL;
 static uint32_t boot_cnt = 0;
-
-static int8_t pre_page_index = -1;
-static int8_t current_page_index = -1;
-
-static page_inst_t pages[] = {
-        [0] = {
-                .page_name = "main_page",
-                .draw_cb = main_page_draw,
-        },
-        [1] = {
-                .page_name = "info_page",
-                .draw_cb = info_page_draw,
-                .on_create_page = info_page_on_create,
-                .key_click_handler = info_page_key_click,
-        },
-        [2] = {
-                .page_name = "test_page",
-                .draw_cb = test_page_draw,
-        },
-        [3] = {
-                .page_name = "bitmap_page",
-                .draw_cb = bitmap_page_draw,
-                .key_click_handler = bitmap_page_key_click_handle,
-        },
-        [4] = {
-                .page_name = "temperature_page",
-                .draw_cb = temperature_page_draw,
-                .key_click_handler = temperature_page_key_click_handle,
-                .on_create_page = temperature_page_on_create,
-                .on_destroy_page = temperature_page_on_destroy
-        },
-        [5] = {
-                .page_name = "upgrade_page",
-                .draw_cb = upgrade_page_draw,
-                .key_click_handler = upgrade_page_key_click_handle,
-                .on_create_page = upgrade_page_on_create,
-                .on_destroy_page = upgrade_page_on_destroy
-        }
-};
 
 bool spi_driver_init(int host,
                      int miso_pin, int mosi_pin, int sclk_pin,
@@ -135,39 +91,6 @@ bool spi_driver_init(int host,
     return ESP_OK != ret;
 }
 
-void switch_page(int8_t dest_page_index) {
-    if (current_page_index == dest_page_index) {
-        return;
-    }
-    if (dest_page_index < 0) {
-        ESP_LOGE(TAG, "dest page is invalid %d", dest_page_index);
-        return;
-    }
-
-    ESP_LOGI(TAG, "page switch from %s to %s ",
-             current_page_index >= 0 ? pages[current_page_index].page_name : "empty",
-             pages[dest_page_index].page_name);
-
-    // new page on create
-    if (pages[dest_page_index].on_create_page != NULL) {
-        pages[dest_page_index].on_create_page(NULL);
-        ESP_LOGI(TAG, "page %s on create", pages[dest_page_index].page_name);
-    }
-    pre_page_index = current_page_index;
-    current_page_index = dest_page_index;
-
-    // old page destroy
-    if (pre_page_index >= 0 && pages[pre_page_index].on_destroy_page != NULL) {
-        pages[pre_page_index].on_destroy_page(NULL);
-        ESP_LOGI(TAG, "page %s on destroy", pages[pre_page_index].page_name);
-    }
-}
-
-void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
-    page_inst_t current_page = pages[current_page_index];
-    current_page.draw_cb(epd_paint, loop_cnt);
-}
-
 void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
     panel_ssd1680_sleep(panel);
 
@@ -191,11 +114,15 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
     esp_deep_sleep_start();
 }
 
+void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+    page_inst_t current_page = page_manager_get_current_page();
+    current_page.on_draw_page(epd_paint, loop_cnt);
+}
+
 static void guiTask(void *pvParameter) {
-    switch_page(5);
+    page_manager_init("temperature");
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
-
     spi_driver_init(TFT_SPI_HOST,
                     DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
                     DISP_BUFF_SIZE, SPI_DMA_CH_AUTO);
@@ -249,6 +176,9 @@ static void guiTask(void *pvParameter) {
     static uint32_t ulNotificationCount;
     static uint32_t continue_time_out_count = 0;
 
+    //sleep wait for sensor init
+    vTaskDelay(pdMS_TO_TICKS(50));
+
     while (1) {
         // not first loop
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
@@ -289,10 +219,8 @@ static void guiTask(void *pvParameter) {
 
         loop_cnt += 1;
 
-        // only in bitmap page should enter deep sleep mode
-        // todo if in others page try to go back to main page
-        if (current_page_index == 3
-            && (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER)) {
+        // enter deep sleep mode
+        if (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
             enter_deep_sleep(120, &panel);
         }
     }
@@ -328,7 +256,7 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
     }
 
     // if not handle passed to view
-    page_inst_t current_page = pages[current_page_index];
+    page_inst_t current_page = page_manager_get_current_page();
     if (current_page.key_click_handler) {
         if (current_page.key_click_handler(event_id)) {
             return;

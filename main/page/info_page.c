@@ -23,12 +23,12 @@
 #include "bike_common.h"
 #include "test_page.h"
 #include "tools/encode.h"
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "battery.h"
 #include "view/list_view.h"
 
 #include "info_page.h"
-#include "display.h"
+#include "lcd/display.h"
 #include "wifi/wifi_ap.h"
 
 /*********************

@@ -37,7 +37,6 @@ enum bmp_error bmp_header_read(bmp_header *header, uint8_t *data, uint16_t data_
             int bmiColorsCount = (bmpHeader->bfOffBits - 14 - bmpHeader->biSize) / sizeof(RGBQUAD);
             assert(bmiColorsCount == 1 << bmpHeader->biBitCount);
         } else if (bmpHeader->biCompression == BI_BITFIELDS) {
-            int bmiColorsMaskCount = 1;
             assert(bmpHeader->bfOffBits - 14 - bmpHeader->biSize == sizeof(RGBQUAD_COLOR_MASK));
         }
 

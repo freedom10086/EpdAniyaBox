@@ -17,18 +17,18 @@ typedef struct {
     int32_t raw_hum;
 
     sht31_data_t data;
-
-    esp_event_loop_handle_t event_loop_hdl;
 } sht31_t;
 
 /**
  * sht31 event
  */
 typedef enum {
+    SHT31_SENSOR_INIT_FAILED,
     SHT31_SENSOR_UPDATE,
+    SHT31_SENSOR_READ_FAILED,
 } sht31_event_id_t;
 
-sht31_t * sht31_init(esp_event_loop_handle_t event_loop_hdl);
+void sht31_init();
 void sht31_reset();
 bool sht31_read_temp_hum();
 void sht31_deinit();

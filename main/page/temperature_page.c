@@ -5,7 +5,7 @@
 #include <esp_log.h>
 
 #include "bike_common.h"
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "view/digi_view.h"
 #include "view/battery_view.h"
 
@@ -47,6 +47,9 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
             humility = data->hum;
             humility_valid = true;
             break;
+        case SHT31_SENSOR_READ_FAILED:
+            ESP_LOGE(TAG, "read temp and hum failed!");
+            break;
         default:
             break;
     }
@@ -54,10 +57,10 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 
 void temperature_page_on_create(void *args) {
     ESP_LOGI(TAG, "=== on create ===");
-    sht31_t *sht31 = sht31_init(event_loop_handle);
     esp_event_handler_register_with(event_loop_handle,
                                     BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
                                     ble_temp_sensor_event_handler, NULL);
+    sht31_init();
 }
 
 void temperature_page_on_destroy(void *args) {
@@ -68,6 +71,7 @@ void temperature_page_on_destroy(void *args) {
 }
 
 void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+    ESP_LOGI(TAG, "=== on draw ===");
     epd_paint_clear(epd_paint, 0);
 
     //epd_paint_draw_string_at(epd_paint, 167, 2, (char *)temp, &Font_HZK16, 1);

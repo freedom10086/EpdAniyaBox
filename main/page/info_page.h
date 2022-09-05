@@ -1,8 +1,8 @@
 #ifndef INFO_PAGE_H
 #define INFO_PAGE_H
 
-#include "epdpaint.h"
-#include "display.h"
+#include "lcd/epdpaint.h"
+#include "lcd/display.h"
 
 void info_page_on_create(void *arg);
 

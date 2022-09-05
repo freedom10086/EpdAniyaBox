@@ -1760,6 +1760,7 @@ sFONT Font16 = {
   11, /* Width */
   16, /* Height */
   ' ',
+  0,
 };
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

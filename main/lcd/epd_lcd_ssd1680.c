@@ -511,11 +511,9 @@ esp_err_t panel_ssd1680_init_partial(lcd_ssd1680_panel_t *panel) {
 /**
  * x_start, y_start include, x_end, y_end not include
  */
-esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
+esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int16_t x_start, int16_t y_start, int16_t x_end, int16_t y_end,
                                     const void *color_data) {
-
-    assert((x_start < x_end) && (y_start < y_end) && "start position must be smaller than end position");
-
+    assert(((x_start < x_end) && (y_start < y_end)) && "start position must be smaller than end position");
     int w = x_end - x_start;
     int h = y_end - y_start;
 
@@ -584,7 +582,7 @@ esp_err_t panel_ssd1680_refresh(lcd_ssd1680_panel_t *panel, bool partial_update_
 }
 
 esp_err_t
-panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, uint16_t end_x, uint16_t end_y) {
+panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, int16_t x, int16_t y, int16_t end_x, int16_t end_y) {
     if (!panel->_using_partial_mode) {
         panel_ssd1680_init_partial(panel);
     }

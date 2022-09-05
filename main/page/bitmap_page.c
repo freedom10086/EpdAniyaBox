@@ -21,17 +21,17 @@
 #include <math.h>
 
 #include "bike_common.h"
-#include "test_page.h"
+#include "page/test_page.h"
 #include "tools/encode.h"
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 #include "key.h"
-#include "jpg.h"
-#include "bmp.h"
+#include "lcd/jpg.h"
+#include "lcd/bmp.h"
 
 #include "bitmap_page.h"
-#include "display.h"
+#include "lcd/display.h"
 #include "wifi/wifi_ap.h"
-#include "epd_lcd_ssd1680.h"
+#include "lcd/epd_lcd_ssd1680.h"
 #include "static/static.h"
 #include <dirent.h>
 #include <esp_check.h>

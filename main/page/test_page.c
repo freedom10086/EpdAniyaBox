@@ -20,7 +20,7 @@
 #include "bike_common.h"
 #include "test_page.h"
 #include "tools/encode.h"
-#include "epdpaint.h"
+#include "lcd/epdpaint.h"
 
 
 /*********************

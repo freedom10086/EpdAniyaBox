@@ -175,7 +175,7 @@ esp_err_t load_battery_curve(void) {
             return err;
         }
         for (int i = 0; i < battery_curve_size / sizeof(uint32_t); i++) {
-            printf("%d: %ld\n", i + 1, battery_curve_data[i]);
+            // printf("%d: %ld\n", i + 1, battery_curve_data[i]);
             // pre handle battery curve data after master small or equals to before
             if (i > 0 && battery_curve_data[i] > battery_curve_data[i - 1]) {
                 battery_curve_data[i] = battery_curve_data[i - 1];
@@ -280,7 +280,6 @@ static void battery_task_entry(void *arg) {
 
     while (1) {
         ESP_ERROR_CHECK(adc_oneshot_read(adc1_handle, ADC1_CHAN1, &_adc_raw));
-        ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, ADC1_CHAN1, _adc_raw);
         if (do_calibration1) {
             int voltage;
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, _adc_raw, &voltage));
@@ -295,7 +294,10 @@ static void battery_task_entry(void *arg) {
                     ESP_LOGI(TAG, "add battery curve %d", voltage);
                 }
             }
+        } else {
+            ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, ADC1_CHAN1, _adc_raw);
         }
+
         vTaskDelay(pdMS_TO_TICKS(10000));
     }
 

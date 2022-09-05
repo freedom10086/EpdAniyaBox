@@ -1,4 +1,4 @@
-set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font20.c" "lcd/font24.c"
+set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font20.c" "lcd/font24.c"
         "lcd/font32.c" "lcd/font32.c" "lcd/epdpaint.c" "lcd/font_hzk16.c"
         "bike_common.c"
         "lcd/bmp.c" "lcd/jpg.c"
@@ -11,7 +11,8 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font16_2.c" "lcd/font2
         "zw800.c"
         "sht31.c"
         "nmea_parser.c"
-        "lcd/epd_lcd_ssd1680.c" "lcd/main_page.c" "lcd/test_page.c" "lcd/info_page.c" "lcd/display.c" "lcd/bitmap_page.c" "lcd/temperature_page.c" "lcd/upgrade_page.c"
+        "lcd/epd_lcd_ssd1680.c" "page/main_page.c" "page/test_page.c" "page/info_page.c" "lcd/display.c" "page/bitmap_page.c" "page/temperature_page.c" "page/upgrade_page.c"
+        "page_manager.c"
         "view/list_view.c" "view/digi_view.c" "view/battery_view.c"
         "main.c")
 

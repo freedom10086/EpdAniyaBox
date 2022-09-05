@@ -13,7 +13,7 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-#include "lcd/main_page.h"
+#include "page/main_page.h"
 #include "nmea_parser.h"
 #include "ble/ble_device.h"
 #include "sd_card.h"

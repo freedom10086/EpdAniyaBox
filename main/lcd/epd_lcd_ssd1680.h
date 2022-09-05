@@ -7,6 +7,7 @@
 
 #include "esp_lcd_panel_vendor.h"
 #include "esp_lcd_panel_io.h"
+#include "driver/spi_master.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,12 +54,12 @@ esp_err_t panel_ssd1680_reset(lcd_ssd1680_panel_t *panel);
 
 esp_err_t panel_ssd1680_clear_display(lcd_ssd1680_panel_t *panel, uint8_t color);
 
-esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int x_start, int y_start, int x_end, int y_end,
+esp_err_t panel_ssd1680_draw_bitmap(lcd_ssd1680_panel_t *panel, int16_t x_start, int16_t y_start, int16_t x_end, int16_t y_end,
                                            const void *color_data) ;
 
 esp_err_t panel_ssd1680_refresh(lcd_ssd1680_panel_t *panel, bool partial_update_mode);
 
-esp_err_t panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, uint16_t x, uint16_t y, uint16_t end_x, uint16_t end_y);
+esp_err_t panel_ssd1680_refresh_area(lcd_ssd1680_panel_t *panel, int16_t x, int16_t y, int16_t end_x, int16_t end_y);
 
 esp_err_t panel_ssd1680_sleep(lcd_ssd1680_panel_t *panel);
 
