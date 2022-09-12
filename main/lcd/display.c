@@ -119,8 +119,15 @@ void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     current_page.on_draw_page(epd_paint, loop_cnt);
 }
 
+void after_draw_page(uint32_t loop_cnt) {
+    page_inst_t current_page = page_manager_get_current_page();
+    if (current_page.after_draw_page != NULL) {
+        current_page.after_draw_page(loop_cnt);
+    }
+}
+
 static void guiTask(void *pvParameter) {
-    page_manager_init("info");
+    page_manager_init("temperature");
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
     spi_driver_init(TFT_SPI_HOST,
@@ -182,7 +189,7 @@ static void guiTask(void *pvParameter) {
     while (1) {
         // not first loop
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
-            ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(30000));
+            ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
             ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
                 continue_time_out_count = 0;
@@ -212,6 +219,9 @@ static void guiTask(void *pvParameter) {
 
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, use_partial_update_mode);
+
+        after_draw_page(loop_cnt);
+
         if (!use_partial_update_mode) {
             last_full_refresh_tick = current_tick;
             last_full_refresh_loop_cnt = loop_cnt;
@@ -220,7 +230,7 @@ static void guiTask(void *pvParameter) {
         loop_cnt += 1;
 
         // enter deep sleep mode
-        if ((continue_time_out_count >= 2 && page_manager_enter_sleep())
+        if ((continue_time_out_count >= 2 && page_manager_enter_sleep(loop_cnt))
             || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
             enter_deep_sleep(120, &panel);
         }
@@ -247,21 +257,25 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
 static void key_click_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
     ESP_LOGI(TAG, "rev key click event %ld", event_id);
-    switch (event_id) {
-        case KEY_1_SHORT_CLICK:
-            break;
-        case KEY_2_SHORT_CLICK:
-            break;
-        default:
-            break;
-    }
-
     // if not handle passed to view
     page_inst_t current_page = page_manager_get_current_page();
     if (current_page.key_click_handler) {
         if (current_page.key_click_handler(event_id)) {
             return;
         }
+    }
+
+    switch (event_id) {
+        case KEY_1_SHORT_CLICK:
+            break;
+        case KEY_2_SHORT_CLICK:
+            break;
+        case KEY_1_LONG_CLICK:
+            page_manager_switch_page("menu");
+            int full_update = 0;
+            request_display_update_handler(NULL, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update);
+        default:
+            break;
     }
 
     // if page not handle key click event here handle

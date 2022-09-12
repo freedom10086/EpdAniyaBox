@@ -10,9 +10,10 @@
 #include "page/bitmap_page.h"
 #include "page/temperature_page.h"
 #include "page/upgrade_page.h"
+#include "page/menu_page.h"
 
 #define TAG "page-manager"
-#define TOTAL_PAGE 5
+#define TOTAL_PAGE 7
 
 static int8_t pre_page_index = -1;
 static int8_t current_page_index = -1;
@@ -51,6 +52,15 @@ static page_inst_t pages[] = {
                 .key_click_handler = upgrade_page_key_click_handle,
                 .on_create_page = upgrade_page_on_create,
                 .on_destroy_page = upgrade_page_on_destroy
+        },
+        [6] = {
+                .page_name = "menu",
+                .on_draw_page = menu_page_draw,
+                .key_click_handler = menu_page_key_click,
+                .on_create_page = menu_page_on_create,
+                .on_destroy_page = menu_page_on_destroy,
+                .enter_sleep_handler = menu_page_on_enter_sleep,
+                .after_draw_page = menu_page_after_draw,
         }
 };
 
@@ -97,6 +107,11 @@ void page_manager_switch_page(char *page_name) {
             idx = i;
             break;
         }
+    }
+    if (idx == -1) {
+        ESP_LOGE(TAG, "can not find page %s", page_name);
+        page_manager_switch_page_by_index(0);
+        return;
     }
     page_manager_switch_page_by_index(idx);
 }

@@ -55,10 +55,7 @@ bool info_page_key_click(key_event_id_t key_event_type) {
     if (KEY_2_SHORT_CLICK == key_event_type) {
         if (list_view) {
             list_view->current_index = (list_view->current_index + 1) % list_view->element_count;
-
-            esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
-                              &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
-
+            post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
             return true;
         }
     } else if (KEY_1_SHORT_CLICK == key_event_type) {
@@ -72,9 +69,7 @@ bool info_page_key_click(key_event_id_t key_event_type) {
                 wifi_on = true;
             }
             list_view_update_item(list_view, 0, wifi_on ? "clsoe wifi" : "open wifi");
-            esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
-                              &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
-
+            post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
             return true;
         }
     }
