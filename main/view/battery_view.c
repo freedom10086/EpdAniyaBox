@@ -24,7 +24,7 @@ battery_view_t *battery_view_create(int x, int y, int width, int height) {
     return view;
 }
 
-void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, uint8_t level, uint32_t loop_cnt) {
+void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, int8_t level, uint32_t loop_cnt) {
     uint8_t head_w = max(1, battery_view->height / 8);
     uint8_t head_h = max(2, battery_view->height / 4);
 
@@ -41,15 +41,25 @@ void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, uin
                              battery_view->y + battery_view->height,
                              1);
 
-    // center level
-    uint8_t battery_total_pixel = battery_view->width - LINE_THICK * 2 - head_w - 2;
-    uint8_t current_level_pixel = level * battery_total_pixel / 100;
-    if (current_level_pixel > 0) {
-        epd_paint_draw_filled_rectangle(epd_paint, battery_view->x + LINE_THICK + 1,
-                                        battery_view->y + LINE_THICK + 1,
-                                        battery_view->x + LINE_THICK + 1 + current_level_pixel,
-                                        battery_view->y + battery_view->height - 1 - LINE_THICK,
-                                        1);
+    if (level < 0) {
+        epd_paint_draw_line(epd_paint,
+                            battery_view->x + battery_view->width - head_w - head_h,
+                            battery_view->y,
+                            battery_view->x + head_h,
+                            battery_view->y + battery_view->height,
+                            1);
+    } else {
+        // center level
+        uint8_t battery_total_pixel = battery_view->width - LINE_THICK * 2 - head_w - 2;
+        uint8_t current_level_pixel = level * battery_total_pixel / 100;
+        ESP_LOGI(TAG, "battery view level %d", level);
+        if (current_level_pixel > 0) {
+            epd_paint_draw_filled_rectangle(epd_paint, battery_view->x + LINE_THICK + 1,
+                                            battery_view->y + LINE_THICK + 1,
+                                            battery_view->x + LINE_THICK + 1 + current_level_pixel,
+                                            battery_view->y + battery_view->height - 1 - LINE_THICK,
+                                            1);
+        }
     }
 }
 

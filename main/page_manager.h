@@ -14,12 +14,15 @@ typedef void (*on_destroy_page_cb)(void *args);
 
 typedef bool (*key_click_handler)(key_event_id_t key_event_type);
 
+typedef bool (*on_enter_sleep_handler)(void *args);
+
 typedef struct{
     char* page_name;
     on_draw_page_cb on_draw_page;
     key_click_handler key_click_handler;
     on_create_page_cb on_create_page;
     on_destroy_page_cb on_destroy_page;
+    on_enter_sleep_handler enter_sleep_handler;
 } page_inst_t;
 
 void page_manager_init(char *default_page);
@@ -29,5 +32,7 @@ void page_manager_reg_page(page_inst_t page);
 void page_manager_switch_page(char *page_name);
 
 page_inst_t page_manager_get_current_page();
+
+bool page_manager_enter_sleep();
 
 #endif

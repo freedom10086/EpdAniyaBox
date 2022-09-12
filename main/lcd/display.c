@@ -120,7 +120,7 @@ void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 }
 
 static void guiTask(void *pvParameter) {
-    page_manager_init("temperature");
+    page_manager_init("info");
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
     spi_driver_init(TFT_SPI_HOST,
@@ -182,7 +182,7 @@ static void guiTask(void *pvParameter) {
     while (1) {
         // not first loop
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
-            ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
+            ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(30000));
             ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
                 continue_time_out_count = 0;
@@ -220,7 +220,8 @@ static void guiTask(void *pvParameter) {
         loop_cnt += 1;
 
         // enter deep sleep mode
-        if (continue_time_out_count >= 2 || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+        if ((continue_time_out_count >= 2 && page_manager_enter_sleep())
+            || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
             enter_deep_sleep(120, &panel);
         }
     }

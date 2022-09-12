@@ -16,7 +16,7 @@ typedef struct {
 
 battery_view_t *battery_view_create(int x, int y, int width, int height);
 
-void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, uint8_t level, uint32_t loop_cnt);
+void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, int8_t level, uint32_t loop_cnt);
 
 void battery_view_deinit(battery_view_t *battery_view);
 

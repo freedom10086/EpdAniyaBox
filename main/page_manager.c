@@ -27,6 +27,7 @@ static page_inst_t pages[] = {
                 .on_draw_page = info_page_draw,
                 .on_create_page = info_page_on_create,
                 .key_click_handler = info_page_key_click,
+                .enter_sleep_handler = info_page_on_enter_sleep,
         },
         [2] = {
                 .page_name = "test",
@@ -111,4 +112,12 @@ void page_manager_close_page() {
 page_inst_t page_manager_get_current_page() {
     page_inst_t current_page = pages[current_page_index];
     return current_page;
+}
+
+bool page_manager_enter_sleep(uint32_t loop_cnt) {
+    page_inst_t current_page = page_manager_get_current_page();
+    if (current_page.enter_sleep_handler != NULL) {
+        return current_page.enter_sleep_handler((void *)loop_cnt);
+    }
+    return true;
 }

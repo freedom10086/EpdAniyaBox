@@ -132,7 +132,7 @@ void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 
     // battery
     int battery_voltage = battery_get_voltage();
-    int battery_level = battery_get_level();
+    int8_t battery_level = battery_get_level();
 
     epd_paint_draw_string_at(epd_paint, 0, y, "battery:", &Font20, 1);
     y += 20;
@@ -145,4 +145,8 @@ void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         init_list_view(y + 20);
     }
     list_vew_draw(list_view, epd_paint, loop_cnt);
+}
+
+bool info_page_on_enter_sleep(void *args) {
+    return !battery_is_curving();
 }
