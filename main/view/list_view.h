@@ -20,7 +20,9 @@ typedef struct {
     sFONT *font;
 } list_view_t;
 
-list_view_t * list_vew_create(int x, int y, int width, int height, sFONT *font);
+list_view_t *list_vew_create(int x, int y, int width, int height, sFONT *font);
+
+void list_view_set_position(list_view_t *list_view, int x, int y);
 
 int get_select_index(list_view_t *list_view);
 

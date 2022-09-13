@@ -11,7 +11,8 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font20.c" "lcd/font24.
         "zw800.c"
         "sht31.c"
         "nmea_parser.c"
-        "lcd/epd_lcd_ssd1680.c" "page/main_page.c" "page/menu_page.c" "page/test_page.c" "page/info_page.c" "lcd/display.c" "page/bitmap_page.c" "page/temperature_page.c" "page/upgrade_page.c"
+        "lcd/epd_lcd_ssd1680.c" "page/main_page.c" "page/menu_page.c" "page/test_page.c" "page/info_page.c" "lcd/display.c" "page/image_page.c" "page/temperature_page.c" "page/upgrade_page.c"
+        "page/manual_page.c" "page/setting_page.c"
         "page_manager.c"
         "view/list_view.c" "view/digi_view.c" "view/battery_view.c"
         "main.c")

@@ -26,11 +26,25 @@ void epd_paint_deinit(epd_paint_t *epd_paint) {
  *  @brief: clear the image
  */
 void epd_paint_clear(epd_paint_t *epd_paint, int colored) {
-    for (int x = 0; x < epd_paint->width; x++) {
-        for (int y = 0; y < epd_paint->height; y++) {
-            epd_paint_draw_absolute_pixel(epd_paint, x, y, colored);
+    if (IF_INVERT_COLOR) {
+        if (colored) {
+            memset(epd_paint->image, 0xff, epd_paint->width * epd_paint->height * sizeof(uint8_t) / 8);
+        } else {
+            memset(epd_paint->image, 0, epd_paint->width * epd_paint->height * sizeof(uint8_t) / 8);
+        }
+    } else {
+        if (!colored) {
+            memset(epd_paint->image, 0xff, epd_paint->width * epd_paint->height * sizeof(uint8_t) / 8);
+        } else {
+            memset(epd_paint->image, 0, epd_paint->width * epd_paint->height * sizeof(uint8_t) / 8);
         }
     }
+
+//    for (int x = 0; x < epd_paint->width; x++) {
+//        for (int y = 0; y < epd_paint->height; y++) {
+//            epd_paint_draw_absolute_pixel(epd_paint, x, y, colored);
+//        }
+//    }
 }
 
 void epd_paint_clear_range(epd_paint_t *epd_paint, int start_x, int start_y, int width, int height, int colored) {
@@ -140,8 +154,7 @@ void epd_paint_draw_char_at(epd_paint_t *epd_paint, int x, int y, char ascii_cha
 void
 epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16_t font_char, sFONT *font, int colored) {
     int i, j;
-    unsigned int char_offset =
-            (94 * (unsigned int) ((font_char & 0xff) - 0xa0 - 1) + ((font_char >> 8) - 0xa0 - 1))
+    unsigned int char_offset = (94 * (unsigned int) ((font_char & 0xff) - 0xa0 - 1) + ((font_char >> 8) - 0xa0 - 1))
             * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
     const uint8_t *ptr = &font->table[char_offset];
 

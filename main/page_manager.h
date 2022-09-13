@@ -18,8 +18,8 @@ typedef bool (*on_enter_sleep_handler)(void *args);
 
 typedef void (*after_draw_page_cb)(uint32_t loop_cnt);
 
-typedef struct{
-    char* page_name;
+typedef struct {
+    char *page_name;
     on_draw_page_cb on_draw_page;
     key_click_handler key_click_handler;
     on_create_page_cb on_create_page;
@@ -38,6 +38,16 @@ void page_manager_close_page();
 
 page_inst_t page_manager_get_current_page();
 
+bool page_manager_has_menu();
+
+page_inst_t page_manager_get_current_menu();
+
+void page_manager_show_menu(char *name);
+
+void page_manager_close_menu();
+
 bool page_manager_enter_sleep(uint32_t loop_cnt);
+
+void page_manager_request_update(uint32_t full_refresh);
 
 #endif

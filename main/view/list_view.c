@@ -52,6 +52,11 @@ list_view_t *list_vew_create(int x, int y, int width, int height, sFONT *font) {
     return list_view;
 }
 
+void list_view_set_position(list_view_t *list_view, int x, int y) {
+    list_view->x = x;
+    list_view->y = y;
+}
+
 void list_view_add_element(list_view_t *list_view, char *text) {
     ESP_LOGI(TAG, "list view add item");
     struct list_view_element_t *head = list_view->head;

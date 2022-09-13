@@ -117,6 +117,11 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
 void draw_page(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     page_inst_t current_page = page_manager_get_current_page();
     current_page.on_draw_page(epd_paint, loop_cnt);
+
+    if (page_manager_has_menu()) {
+        page_inst_t current_menu = page_manager_get_current_menu();
+        current_menu.on_draw_page(epd_paint, loop_cnt);
+    }
 }
 
 void after_draw_page(uint32_t loop_cnt) {
@@ -127,7 +132,7 @@ void after_draw_page(uint32_t loop_cnt) {
 }
 
 static void guiTask(void *pvParameter) {
-    page_manager_init("temperature");
+    page_manager_init("info");
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
     spi_driver_init(TFT_SPI_HOST,
@@ -257,6 +262,17 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
 static void key_click_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
     ESP_LOGI(TAG, "rev key click event %ld", event_id);
+
+    // if menu exist
+    if (page_manager_has_menu()) {
+        page_inst_t current_menu = page_manager_get_current_menu();
+        if (current_menu.key_click_handler) {
+            if (current_menu.key_click_handler(event_id)) {
+                return;
+            }
+        }
+    }
+
     // if not handle passed to view
     page_inst_t current_page = page_manager_get_current_page();
     if (current_page.key_click_handler) {
@@ -265,15 +281,15 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
         }
     }
 
+    // finally pass here
     switch (event_id) {
         case KEY_1_SHORT_CLICK:
             break;
         case KEY_2_SHORT_CLICK:
             break;
         case KEY_1_LONG_CLICK:
-            page_manager_switch_page("menu");
-            int full_update = 0;
-            request_display_update_handler(NULL, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update);
+            page_manager_show_menu("menu");
+            page_manager_request_update(false);
         default:
             break;
     }

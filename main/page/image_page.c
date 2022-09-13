@@ -3,40 +3,21 @@
 
 #include <stdbool.h>
 #include <string.h>
-#include <esp_lcd_panel_vendor.h>
 #include <esp_log.h>
-#include <esp_lcd_panel_io.h>
-#include <esp_lcd_panel_ops.h>
-#include <esp_timer.h>
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "esp_freertos_hooks.h"
-#include "freertos/semphr.h"
 #include "esp_system.h"
-#include "driver/gpio.h"
-#include "driver/spi_master.h"
 #include "esp_mac.h"
-#include "esp_wifi.h"
-#include <math.h>
-
-#include "bike_common.h"
-#include "page/test_page.h"
-#include "tools/encode.h"
 #include "lcd/epdpaint.h"
 #include "key.h"
 #include "lcd/jpg.h"
 #include "lcd/bmp.h"
 
-#include "bitmap_page.h"
-#include "lcd/display.h"
-#include "wifi/wifi_ap.h"
+#include "image_page.h"
 #include "lcd/epd_lcd_ssd1680.h"
 #include "static/static.h"
 #include <dirent.h>
-#include <esp_check.h>
 #include "esp_vfs.h"
 
+#include "page_manager.h"
 #include "wifi/my_file_server_common.h"
 
 /*********************
@@ -48,6 +29,8 @@
     (strcasecmp(&filename[strlen(filename) - sizeof(ext) + 1], ext) == 0)
 
 RTC_DATA_ATTR static uint8_t current_bitmap_page_index = 0;
+
+bool file_system_mounted = false;
 
 void testBmp(uint8_t *data, uint16_t data_len) {
     //bmp_header *bmpHeader = (bmp_header *) (aniya_200_1_bmp_start);
@@ -122,7 +105,7 @@ void display_file(epd_paint_t *epd_paint, uint32_t loop_cnt, char *file_name, ui
     if (img_file == NULL) {
         ESP_LOGE(TAG, "open image file %s failed", file_name);
         current_bitmap_page_index = 0;
-        bitmap_page_draw(epd_paint, loop_cnt);
+        image_page_draw(epd_paint, loop_cnt);
         return;
     }
 
@@ -136,7 +119,17 @@ void display_file(epd_paint_t *epd_paint, uint32_t loop_cnt, char *file_name, ui
     fclose(img_file);
 }
 
-void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+void image_page_on_create(void *arg) {
+    esp_err_t err = mount_storage(FILE_SERVER_BASE_PATH, true);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "mount failed %s", FILE_SERVER_BASE_PATH);
+        file_system_mounted = false;
+    } else {
+        file_system_mounted = true;
+    }
+}
+
+void image_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 0);
     if (current_bitmap_page_index == 0) {
         epd_paint_draw_bitmap(epd_paint, 0, 0, LCD_H_RES, LCD_V_RES, (uint8_t *) aniya_200_1_bmp_start,
@@ -144,16 +137,10 @@ void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     } else if (current_bitmap_page_index == 1) {
         epd_paint_draw_bitmap(epd_paint, 0, 0, LCD_H_RES, LCD_V_RES, (uint8_t *) aniya_200_bmp_start,
                               aniya_200_bmp_end - aniya_200_bmp_start, 1);
-    } else {
+    } else if (file_system_mounted) {
         // read from file
         uint8_t file_index = current_bitmap_page_index - 2;
         bool finded = false;
-
-        esp_err_t err = mount_storage(FILE_SERVER_BASE_PATH, true);
-        if (err != ESP_OK) {
-            ESP_LOGE(TAG, "mount failed %s", FILE_SERVER_BASE_PATH);
-            goto display_default;
-        }
 
         char entrypath[64];
         char entrysize[16];
@@ -209,32 +196,35 @@ void bitmap_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
             closedir(dir);
         }
 
-        // unmount_storage();
-
-        display_default:
         if (!finded) {
             current_bitmap_page_index = 0;
-            bitmap_page_draw(epd_paint, loop_cnt);
+            image_page_draw(epd_paint, loop_cnt);
         }
+    } else {
+        // mount file failed use default
+        current_bitmap_page_index = 0;
+        image_page_draw(epd_paint, loop_cnt);
     }
 }
 
-bool bitmap_page_key_click_handle(key_event_id_t key_event_type) {
-    int full_update = 0;
+bool image_page_key_click_handle(key_event_id_t key_event_type) {
     switch (key_event_type) {
         case KEY_1_SHORT_CLICK:
-            current_bitmap_page_index += 1;
-            esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
-                              &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
-            return true;
-        case KEY_1_LONG_CLICK:
             current_bitmap_page_index -= 1;
-            esp_event_post_to(event_loop_handle, BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0,
-                              &full_update, sizeof(full_update), 100 / portTICK_PERIOD_MS);
+            page_manager_request_update(false);
+            return true;
+        case KEY_2_SHORT_CLICK:
+            current_bitmap_page_index += 1;
+            page_manager_request_update(false);
             return true;
         default:
             return false;
     }
 
     return false;
+}
+
+void image_page_on_destroy(void *arg) {
+    unmount_storage();
+    file_system_mounted = false;
 }

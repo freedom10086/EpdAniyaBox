@@ -3,20 +3,25 @@
 #include "string.h"
 
 #include "page_manager.h"
+#include "bike_common.h"
 
 #include "page/main_page.h"
 #include "page/test_page.h"
 #include "page/info_page.h"
-#include "page/bitmap_page.h"
+#include "page/image_page.h"
 #include "page/temperature_page.h"
 #include "page/upgrade_page.h"
 #include "page/menu_page.h"
+#include "page/manual_page.h"
+#include "page/setting_page.h"
 
 #define TAG "page-manager"
-#define TOTAL_PAGE 7
+#define TOTAL_PAGE 8
 
 static int8_t pre_page_index = -1;
-static int8_t current_page_index = -1;
+static int8_t menu_index = -1;
+
+RTC_DATA_ATTR static int8_t current_page_index = -1;
 
 static page_inst_t pages[] = {
         [0] = {
@@ -35,9 +40,11 @@ static page_inst_t pages[] = {
                 .on_draw_page = test_page_draw,
         },
         [3] = {
-                .page_name = "bitmap",
-                .on_draw_page = bitmap_page_draw,
-                .key_click_handler = bitmap_page_key_click_handle,
+                .page_name = "image",
+                .on_draw_page = image_page_draw,
+                .key_click_handler = image_page_key_click_handle,
+                .on_create_page = image_page_on_create,
+                .on_destroy_page = image_page_on_destroy,
         },
         [4] = {
                 .page_name = "temperature",
@@ -54,6 +61,24 @@ static page_inst_t pages[] = {
                 .on_destroy_page = upgrade_page_on_destroy
         },
         [6] = {
+                .page_name = "manual",
+                .on_draw_page = manual_page_draw,
+                .key_click_handler = manual_page_key_click,
+                .on_create_page = manual_page_on_create,
+                .on_destroy_page = manual_page_on_destroy,
+        },
+        [7] = {
+                .page_name = "setting",
+                .on_draw_page = setting_page_draw,
+                .key_click_handler = setting_page_key_click,
+                .on_create_page = setting_page_on_create,
+                .on_destroy_page = setting_page_on_destroy,
+                .enter_sleep_handler = setting_page_on_enter_sleep,
+        }
+};
+
+static page_inst_t menus[] = {
+        [0] = {
                 .page_name = "menu",
                 .on_draw_page = menu_page_draw,
                 .key_click_handler = menu_page_key_click,
@@ -129,10 +154,46 @@ page_inst_t page_manager_get_current_page() {
     return current_page;
 }
 
+bool page_manager_has_menu() {
+    return menu_index != -1;
+}
+
+page_inst_t page_manager_get_current_menu() {
+    page_inst_t current_menu = menus[menu_index];
+    return current_menu;
+}
+
+void page_manager_show_menu(char *name) {
+    if (menu_index == -1) {
+        // new page on create
+        if (menus[0].on_create_page != NULL) {
+            pages[0].on_create_page(NULL);
+            ESP_LOGI(TAG, "menu %s on create", menus[0].page_name);
+        }
+        menu_index = 0;
+    } else {
+        ESP_LOGW(TAG, "menu %s exist cant show new", menus[menu_index].page_name);
+    }
+}
+
+void page_manager_close_menu() {
+    if (menu_index != -1) {
+        if (menus[menu_index].on_destroy_page != NULL) {
+            menus[menu_index].on_destroy_page(NULL);
+            ESP_LOGI(TAG, "menu %s on destroy", menus[menu_index].page_name);
+        }
+        menu_index = -1;
+    }
+}
+
 bool page_manager_enter_sleep(uint32_t loop_cnt) {
     page_inst_t current_page = page_manager_get_current_page();
     if (current_page.enter_sleep_handler != NULL) {
-        return current_page.enter_sleep_handler((void *)loop_cnt);
+        return current_page.enter_sleep_handler((void *) loop_cnt);
     }
     return true;
+}
+
+void page_manager_request_update(uint32_t full_refresh) {
+    post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_refresh, sizeof(full_refresh));
 }
