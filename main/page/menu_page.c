@@ -136,11 +136,8 @@ void handle_click_event() {
         // reboot
         esp_restart();
         return;
-    } else {
-        // close
-        page_manager_close_menu();
     }
-
+    page_manager_close_menu();
     page_manager_request_update(false);
     handling_click_event = false;
 }

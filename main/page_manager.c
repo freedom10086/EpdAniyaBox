@@ -167,7 +167,7 @@ void page_manager_show_menu(char *name) {
     if (menu_index == -1) {
         // new page on create
         if (menus[0].on_create_page != NULL) {
-            pages[0].on_create_page(NULL);
+            menus[0].on_create_page(NULL);
             ESP_LOGI(TAG, "menu %s on create", menus[0].page_name);
         }
         menu_index = 0;

@@ -129,10 +129,17 @@ void after_draw_page(uint32_t loop_cnt) {
     if (current_page.after_draw_page != NULL) {
         current_page.after_draw_page(loop_cnt);
     }
+
+    if (page_manager_has_menu()) {
+        page_inst_t menu = page_manager_get_current_menu();
+        if (menu.after_draw_page != NULL) {
+            menu.after_draw_page(loop_cnt);
+        }
+    }
 }
 
 static void guiTask(void *pvParameter) {
-    page_manager_init("info");
+    page_manager_init("temperature");
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
     spi_driver_init(TFT_SPI_HOST,
@@ -262,7 +269,6 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
 static void key_click_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
     ESP_LOGI(TAG, "rev key click event %ld", event_id);
-
     // if menu exist
     if (page_manager_has_menu()) {
         page_inst_t current_menu = page_manager_get_current_menu();

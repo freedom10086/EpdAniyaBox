@@ -74,23 +74,6 @@ void wifi_init_softap() {
     esp_netif_get_ip_info(ap_netif, &info_t);
     print_current_ip_info(info_t);
 
-//    // change ip
-//    char* ip= "192.168.5.241";
-//    char* gateway = "192.168.5.1";
-//    char* netmask = "255.255.255.0";
-//    memset(&info_t, 0, sizeof(esp_netif_ip_info_t));
-//
-//    if (ap_netif) {
-//        ESP_ERROR_CHECK(esp_netif_dhcps_stop(ap_netif));
-//        info_t.ip.addr = esp_ip4addr_aton((const char *)ip);
-//        info_t.netmask.addr = esp_ip4addr_aton((const char *)netmask);
-//        info_t.gw.addr = esp_ip4addr_aton((const char *)gateway);
-//        esp_netif_set_ip_info(ap_netif, &info_t);
-//        ESP_ERROR_CHECK(esp_netif_dhcps_start(ap_netif));
-//
-//        print_current_ip_info(info_t);
-//    }
-
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
 
@@ -117,6 +100,11 @@ void wifi_init_softap() {
 
     ESP_LOGI(TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
              WIFI_SSID, WIFI_PASS, WIFI_CHANNEL);
+}
+
+esp_err_t wifi_ap_get_ip(esp_netif_ip_info_t *ip_info) {
+    return esp_netif_get_ip_info(ap_netif, ip_info);
+    // print_current_ip_info(info_t);
 }
 
 void wifi_deinit_softap() {
