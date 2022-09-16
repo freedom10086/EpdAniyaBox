@@ -90,11 +90,13 @@ static page_inst_t menus[] = {
 };
 
 void page_manager_init(char *default_page) {
+    // reset to -1 when awake from deep sleep
+    current_page_index = -1;
     page_manager_switch_page(default_page);
 }
 
-void page_manager_reg_page(page_inst_t page) {
-
+int8_t page_manager_get_current_index() {
+    return current_page_index;
 }
 
 void page_manager_switch_page_by_index(int8_t dest_page_index) {

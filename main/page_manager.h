@@ -30,7 +30,7 @@ typedef struct {
 
 void page_manager_init(char *default_page);
 
-void page_manager_reg_page(page_inst_t page);
+int8_t page_manager_get_current_index();
 
 void page_manager_switch_page(char *page_name);
 

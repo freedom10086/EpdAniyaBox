@@ -139,7 +139,12 @@ void after_draw_page(uint32_t loop_cnt) {
 }
 
 static void guiTask(void *pvParameter) {
-    page_manager_init("temperature");
+    int8_t page_index = page_manager_get_current_index();
+    if (page_index == 1) { // image page
+        page_manager_init("image");
+    } else {
+        page_manager_init("temperature");
+    }
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();
     spi_driver_init(TFT_SPI_HOST,
