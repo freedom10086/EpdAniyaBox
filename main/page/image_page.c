@@ -228,3 +228,7 @@ void image_page_on_destroy(void *arg) {
     unmount_storage();
     file_system_mounted = false;
 }
+
+int image_page_on_enter_sleep(void *args) {
+    return 900;
+}

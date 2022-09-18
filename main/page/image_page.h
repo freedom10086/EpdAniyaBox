@@ -11,4 +11,6 @@ bool image_page_key_click_handle(key_event_id_t key_event_type);
 
 void image_page_on_destroy(void *arg);
 
+int image_page_on_enter_sleep(void *args);
+
 #endif

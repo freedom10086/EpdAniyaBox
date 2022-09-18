@@ -166,8 +166,8 @@ bool menu_page_key_click(key_event_id_t key_event_type) {
     return true;
 }
 
-bool menu_page_on_enter_sleep(void *args) {
-    return true;
+int menu_page_on_enter_sleep(void *args) {
+    return DEFAULT_SLEEP_TS;
 }
 
 void menu_page_on_destroy(void *arg) {

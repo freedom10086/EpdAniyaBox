@@ -39,12 +39,13 @@ static page_inst_t pages[] = {
                 .page_name = "test",
                 .on_draw_page = test_page_draw,
         },
-        [3] = {
+        [IMAGE_PAGE_INDEX] = {
                 .page_name = "image",
                 .on_draw_page = image_page_draw,
                 .key_click_handler = image_page_key_click_handle,
                 .on_create_page = image_page_on_create,
                 .on_destroy_page = image_page_on_destroy,
+                .enter_sleep_handler = image_page_on_enter_sleep,
         },
         [4] = {
                 .page_name = "temperature",
@@ -188,12 +189,12 @@ void page_manager_close_menu() {
     }
 }
 
-bool page_manager_enter_sleep(uint32_t loop_cnt) {
+int page_manager_enter_sleep(uint32_t loop_cnt) {
     page_inst_t current_page = page_manager_get_current_page();
     if (current_page.enter_sleep_handler != NULL) {
         return current_page.enter_sleep_handler((void *) loop_cnt);
     }
-    return true;
+    return DEFAULT_SLEEP_TS;
 }
 
 void page_manager_request_update(uint32_t full_refresh) {

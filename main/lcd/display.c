@@ -94,7 +94,9 @@ bool spi_driver_init(int host,
 void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
     panel_ssd1680_sleep(panel);
 
-    esp_sleep_enable_timer_wakeup(sleep_ts * 1000000);
+    if (sleep_ts > 0) {
+        esp_sleep_enable_timer_wakeup(sleep_ts * 1000000);
+    }
     //esp_sleep_enable_ext1_wakeup(1 << KEY_1_NUM, ESP_EXT1_WAKEUP_ALL_LOW);
 #ifdef SOC_GPIO_SUPPORT_DEEPSLEEP_WAKEUP
     const gpio_config_t config = {
@@ -140,7 +142,7 @@ void after_draw_page(uint32_t loop_cnt) {
 
 static void guiTask(void *pvParameter) {
     int8_t page_index = page_manager_get_current_index();
-    if (page_index == 1) { // image page
+    if (page_index == IMAGE_PAGE_INDEX) { // image page
         page_manager_init("image");
     } else {
         page_manager_init("temperature");
@@ -247,9 +249,11 @@ static void guiTask(void *pvParameter) {
         loop_cnt += 1;
 
         // enter deep sleep mode
-        if ((continue_time_out_count >= 2 && page_manager_enter_sleep(loop_cnt))
-            || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
-            enter_deep_sleep(120, &panel);
+        if ((continue_time_out_count >= 2) || esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER) {
+            int sleepTs = page_manager_enter_sleep(loop_cnt);
+            if (sleepTs >= 0) {
+                enter_deep_sleep(sleepTs, &panel);
+            }
         }
     }
 

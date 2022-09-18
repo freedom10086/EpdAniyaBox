@@ -6,6 +6,8 @@
 #include "lcd/epdpaint.h"
 #include "key.h"
 
+#define IMAGE_PAGE_INDEX 3
+
 typedef void (*on_draw_page_cb)(epd_paint_t *epd_paint, uint32_t loop_cnt);
 
 typedef void (*on_create_page_cb)(void *args);
@@ -14,9 +16,11 @@ typedef void (*on_destroy_page_cb)(void *args);
 
 typedef bool (*key_click_handler)(key_event_id_t key_event_type);
 
-typedef bool (*on_enter_sleep_handler)(void *args);
+typedef int (*on_enter_sleep_handler)(void *args);
 
 typedef void (*after_draw_page_cb)(uint32_t loop_cnt);
+
+typedef int (*get_prefer_sleep_ts_cb)(uint32_t loop_cnt);
 
 typedef struct {
     char *page_name;
@@ -46,7 +50,8 @@ void page_manager_show_menu(char *name);
 
 void page_manager_close_menu();
 
-bool page_manager_enter_sleep(uint32_t loop_cnt);
+// -1 stop sleep, 0 never wake up by timer
+int page_manager_enter_sleep(uint32_t loop_cnt);
 
 void page_manager_request_update(uint32_t full_refresh);
 

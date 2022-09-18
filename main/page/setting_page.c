@@ -9,6 +9,7 @@
 #include "setting_page.h"
 #include "view/list_view.h"
 
+#include "lcd/display.h"
 #include "bike_common.h"
 #include "page_manager.h"
 #include "battery.h"
@@ -134,6 +135,9 @@ void setting_page_on_destroy(void *arg) {
     list_view_deinit(list_view);
 }
 
-bool setting_page_on_enter_sleep(void *args) {
-    return !battery_is_curving();
+int setting_page_on_enter_sleep(void *args) {
+    if (!battery_is_curving()) {
+        return -1;
+    }
+    return DEFAULT_SLEEP_TS;
 }

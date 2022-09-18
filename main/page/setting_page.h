@@ -14,7 +14,7 @@ void setting_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt);
 
 bool setting_page_key_click(key_event_id_t key_event_type);
 
-bool setting_page_on_enter_sleep(void *args);
+int setting_page_on_enter_sleep(void *args);
 
 void setting_page_on_destroy(void *arg);
 

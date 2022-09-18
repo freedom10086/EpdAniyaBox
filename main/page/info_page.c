@@ -114,6 +114,6 @@ void info_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_draw_string_at(epd_paint, 0, LCD_V_RES - 1 - 18, info_page_draw_text_buf, &Font16, 1);
 }
 
-bool info_page_on_enter_sleep(void *args) {
-    return true;
+int info_page_on_enter_sleep(void *args) {
+    return DEFAULT_SLEEP_TS;
 }
