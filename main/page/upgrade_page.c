@@ -20,7 +20,9 @@
 static bool wifi_on = false;
 static char draw_buff[24] = {};
 
+float last_ota_update_progress = 0;
 float ota_progress = 0;
+
 enum upgrade_state_t state = INIT;
 
 static void ota_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
@@ -29,26 +31,33 @@ static void ota_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         case OTA_START:
             state = UPGRADING;
             ota_progress = 0;
+            last_ota_update_progress = 0;
             break;
         case OTA_PROGRESS:
             state = UPGRADING;
             ota_progress = *(float *) event_data;
-            ESP_LOGI(TAG, "ota progress %f", ota_progress);
             break;
         case OTA_SUCCESS:
             state = UPGRADE_SUCCESS;
             ota_progress = 100.0f;
-            wifi_init_softap();
+            wifi_deinit_softap();
             break;
         case OTA_FAILED:
             state = UPGRADE_FAILED;
-            wifi_init_softap();
+            wifi_deinit_softap();
             break;
         default:
             break;
     }
 
-    page_manager_request_update(false);
+    if (event_id == OTA_PROGRESS) {
+        if (ota_progress - last_ota_update_progress >= 0.5) {
+            last_ota_update_progress = ota_progress;
+            page_manager_request_update(false);
+        }
+    } else {
+        page_manager_request_update(false);
+    }
 }
 
 void upgrade_page_on_create(void *args) {
