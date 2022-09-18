@@ -30,7 +30,7 @@
 static const char *TAG = "http_server";
 
 #define BUFFSIZE 1024
-#define OTA_BUFFSIZE 1024
+#define OTA_BUFFSIZE (8*1024)
 #define HASH_LEN 32 /* SHA-256 digest length */
 
 
