@@ -252,7 +252,7 @@ static void wait_for_busy(lcd_ssd1680_panel_t *ssd1680) {
             }
             uint32_t ulNotificationValueCount = ulTaskNotifyTakeIndexed(0, pdTRUE, pdMS_TO_TICKS(500));
             if (ulNotificationValueCount > 0) {
-                ESP_LOGI(TAG, "get busy isr result... exit wait");
+                //ESP_LOGI(TAG, "get busy isr result... exit wait");
             } else {
                 ESP_LOGI(TAG, "still wait for busy ...");
             }

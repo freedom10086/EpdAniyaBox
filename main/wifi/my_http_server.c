@@ -376,6 +376,7 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
     }
 
     ESP_LOGI(TAG, "Ota success Prepare to restart system!");
+    post_event(BIKE_OTA_EVENT, OTA_SUCCESS);
 
     httpd_resp_set_type(req, "text/html");
 #ifdef CONFIG_EXAMPLE_HTTPD_CONN_CLOSE_HEADER
@@ -383,8 +384,6 @@ static esp_err_t ota_post_handler(httpd_req_t *req) {
 #endif
     char *response = "{\"status\": 200, \"message\": \"ota success\"}";
     httpd_resp_send(req, response, strlen(response));
-
-    post_event(BIKE_OTA_EVENT, OTA_SUCCESS);
 
 //    vTaskDelay(pdMS_TO_TICKS(100));
 //    esp_restart();
