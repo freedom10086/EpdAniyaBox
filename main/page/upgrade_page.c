@@ -40,18 +40,18 @@ static void ota_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         case OTA_SUCCESS:
             state = UPGRADE_SUCCESS;
             ota_progress = 100.0f;
-            wifi_deinit_softap();
+            //wifi_deinit_softap();
             break;
         case OTA_FAILED:
             state = UPGRADE_FAILED;
-            wifi_deinit_softap();
+            //wifi_deinit_softap();
             break;
         default:
             break;
     }
 
     if (event_id == OTA_PROGRESS) {
-        if (ota_progress - last_ota_update_progress >= 0.5) {
+        if (ota_progress - last_ota_update_progress >= 0.003) {
             last_ota_update_progress = ota_progress;
             page_manager_request_update(false);
         }
@@ -147,7 +147,7 @@ void upgrade_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         epd_paint_draw_string_at(epd_paint, 60, 114, (char *) data, &Font_HZK16, 1);
 
         char buff[8];
-        sprintf(buff, "%.1f%%", ota_progress);
+        sprintf(buff, "%.1f%%", ota_progress * 100);
         epd_paint_draw_string_at(epd_paint, 80, 134, (char *) buff, &Font16, 1);
     } else if (state == UPGRADE_FAILED) {
         // upgrade failed icon
