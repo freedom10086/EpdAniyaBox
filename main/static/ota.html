@@ -12,7 +12,7 @@
 <div>
     <label for="update_bin_input">选择固件:</label>
     <input id="update_bin_input" type="file"/>
-    <button id="upload" type="button" onclick="upload()">Upload</button>
+    <button id="upload" type="button" onclick="upload()">升级</button>
 </div>
 <script>
     function upload() {
@@ -20,13 +20,13 @@
 
     /* Max size of an individual file. Make sure this
      * value is same as that set in file_server.c */
-    var MAX_FILE_SIZE = 200*1024;
-    var MAX_FILE_SIZE_STR = "200KB";
+    var MAX_FILE_SIZE = 2*1024*1024;
+    var MAX_FILE_SIZE_STR = "2MB";
 
     if (fileInput.length == 0) {
         alert("No file selected!");
-    } else if (fileInput[0].size > 200*1024) {
-        alert("File size must be less than 200KB!");
+    } else if (fileInput[0].size > MAX_FILE_SIZE) {
+        alert("File size must be less than " + MAX_FILE_SIZE_STR + "!");
     } else {
         document.getElementById("update_bin_input").disabled = true;
         document.getElementById("upload").disabled = true;
