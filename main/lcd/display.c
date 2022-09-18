@@ -145,7 +145,8 @@ static void guiTask(void *pvParameter) {
     if (page_index == IMAGE_PAGE_INDEX) { // image page
         page_manager_init("image");
     } else {
-        page_manager_init("temperature");
+        // page_manager_init("temperature");
+        page_manager_init("upgrade");
     }
 
     xTaskToNotify = xTaskGetCurrentTaskHandle();

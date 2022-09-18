@@ -59,7 +59,8 @@ static page_inst_t pages[] = {
                 .on_draw_page = upgrade_page_draw,
                 .key_click_handler = upgrade_page_key_click_handle,
                 .on_create_page = upgrade_page_on_create,
-                .on_destroy_page = upgrade_page_on_destroy
+                .on_destroy_page = upgrade_page_on_destroy,
+                .enter_sleep_handler = upgrade_page_on_enter_sleep,
         },
         [6] = {
                 .page_name = "manual",

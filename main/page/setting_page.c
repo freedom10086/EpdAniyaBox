@@ -20,7 +20,7 @@
 list_view_t *list_view = NULL;
 static bool wifi_on = false;
 
-char draw_buff[24] = {};
+static char draw_buff[24] = {};
 
 void init_list_view(int y) {
     list_view = list_vew_create(20, y, 120, 80, &Font16);
@@ -54,8 +54,7 @@ void setting_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 0);
     int y = 8;
     epd_paint_draw_string_at(epd_paint, 2, y,
-                             (char[]) {0xC1, 0xAC, 0xBD, 0xD3, 0xC8, 0xE7, 0xCF,
-                                       0xC2, 0x57, 0x49, 0x46, 0x49, 0xB9, 0xDC,
+                             (char[]) {0xC1, 0xAC, 0xBD, 0xD3, 0x57, 0x49, 0x46, 0x49, 0xB9, 0xDC,
                                        0xC0, 0xED, 0xCD, 0xBC, 0xC6, 0xAC,
                                        0x3A, 0x00}, &Font_HZK16, 1);
     y += 20;
