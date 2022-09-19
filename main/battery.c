@@ -29,6 +29,8 @@
 #endif
 
 static int _adc_raw;
+static int _pre_pre_voltage = -1;
+static int _pre_voltage = -1;
 static int _voltage;
 
 // 电压曲线
@@ -58,6 +60,12 @@ static void adc_calibration_deinit(adc_cali_handle_t handle);
 
 bool battery_is_curving() {
     return start_battery_curve;
+}
+
+bool battery_is_charge() {
+    // 不准 大概吧 以后再优化
+    return (_pre_voltage > 0 && _voltage - _pre_voltage >= 2)
+           || (_pre_pre_voltage > 0 && _voltage >= _pre_voltage && _voltage - _pre_pre_voltage >= 2);
 }
 
 esp_err_t get_battery_curve_status(int32_t *status) {
@@ -131,7 +139,7 @@ esp_err_t add_battery_curve(int v) {
     if (err != ESP_OK && err != ESP_ERR_NVS_NOT_FOUND) return err;
 
     // Read previously saved blob if available
-    uint32_t * votages = malloc(required_size + sizeof(uint32_t));
+    uint32_t *votages = malloc(required_size + sizeof(uint32_t));
     if (required_size > 0) {
         err = nvs_get_blob(my_handle, "curve", votages, &required_size);
         if (err != ESP_OK) {
@@ -288,6 +296,8 @@ static void battery_task_entry(void *arg) {
             int voltage;
             ESP_ERROR_CHECK(adc_cali_raw_to_voltage(adc1_cali_handle, _adc_raw, &voltage));
             ESP_LOGI(TAG, "ADC%d Channel[%d] Cali Voltage: %d mV", ADC_UNIT_1 + 1, ADC1_CHAN1, voltage);
+            _pre_pre_voltage = _pre_voltage;
+            _pre_voltage = _voltage;
             _voltage = voltage;
 
             if (start_battery_curve) {
@@ -302,7 +312,7 @@ static void battery_task_entry(void *arg) {
             ESP_LOGI(TAG, "ADC%d Channel[%d] Raw Data: %d", ADC_UNIT_1 + 1, ADC1_CHAN1, _adc_raw);
         }
 
-        vTaskDelay(pdMS_TO_TICKS(180000));
+        vTaskDelay(pdMS_TO_TICKS(45000));
     }
 
     //Tear Down
@@ -398,7 +408,7 @@ int battery_get_voltage() {
 
 int8_t battery_get_level() {
     // invalid
-    if (_voltage < 1200) {
+    if (_voltage < 1000) {
         return -1;
     }
 

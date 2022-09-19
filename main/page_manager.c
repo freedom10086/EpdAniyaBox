@@ -198,17 +198,22 @@ int page_manager_enter_sleep(uint32_t loop_cnt) {
     }
 
     int8_t battery_level = battery_get_level();
-    if (battery_level > 50) {
-        return DEFAULT_SLEEP_TS;
-    } else if (battery_level > 20) {
-        return DEFAULT_SLEEP_TS * 3;
-    } else if (battery_level > 3) {
-        return DEFAULT_SLEEP_TS * 5;
-    } else if (battery_level >= 0) {
-        // battery low never wake up
-        return 0;
+    if (battery_level > 0) {
+        if (battery_is_charge()) {
+            ESP_LOGI(TAG, "battery is charge use default sleep time");
+            return DEFAULT_SLEEP_TS;
+        }
+        if (battery_level < 5) {
+            // battery low never wake up
+            return 0;
+        }
+        if (battery_level < 20) {
+            return DEFAULT_SLEEP_TS * 5;
+        }
+        if (battery_level < 50) {
+            return DEFAULT_SLEEP_TS * 2;
+        }
     }
-
     // battery is invalid use default sleep time
     return DEFAULT_SLEEP_TS;
 }

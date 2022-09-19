@@ -136,6 +136,8 @@ int8_t battery_get_level();
 
 bool battery_is_curving();
 
+bool battery_is_charge();
+
 void battery_deinit(void);
 
 #endif

@@ -117,5 +117,5 @@ int setting_page_on_enter_sleep(void *args) {
     if (!battery_is_curving()) {
         return -1;
     }
-    return DEFAULT_SLEEP_TS;
+    return -1;
 }

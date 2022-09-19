@@ -105,7 +105,6 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
     };
     ESP_ERROR_CHECK(gpio_config(&config));
     ESP_ERROR_CHECK(esp_deep_sleep_enable_gpio_wakeup(1 << KEY_1_NUM, ESP_GPIO_WAKEUP_GPIO_LOW));
-    printf("Enabling GPIO wakeup on pins GPIO%d\n", KEY_1_NUM);
 #else
     esp_sleep_enable_ext0_wakeup(KEY_1_NUM, 0);
     rtc_gpio_pullup_en(KEY_1_NUM);
