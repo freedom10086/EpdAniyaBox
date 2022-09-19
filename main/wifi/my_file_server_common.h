@@ -15,9 +15,6 @@ extern "C" {
 #define MAX_FILE_SIZE   (256*1024) // 256 KB
 #define MAX_FILE_SIZE_STR "256KB"
 
-#define MAX_OTA_FILE_SIZE   (2*1024*1024) // 2MB
-#define MAX_OTA_FILE_SIZE_STR "2MB"
-
 esp_err_t mount_storage(const char *base_path, bool format_when_failed);
 
 esp_err_t unmount_storage();

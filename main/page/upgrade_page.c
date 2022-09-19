@@ -11,7 +11,7 @@
 #include "static/static.h"
 #include "upgrade_page.h"
 #include "bike_common.h"
-#include "wifi/my_http_server.h"
+#include "wifi/my_wifi_ota.h"
 #include "page_manager.h"
 #include "battery.h"
 

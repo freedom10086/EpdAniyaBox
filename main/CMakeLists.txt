@@ -4,7 +4,7 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font20.c" "lcd/font24.
         "lcd/bmp.c" "lcd/jpg.c"
         "tools/kalman_filter.c" "tools/encode.c"
         "battery.c" "key.c"
-        "wifi/wifi_ap.c" "wifi/my_http_server.c" "wifi/my_http_file_server.c" "wifi/my_mount.c"
+        "wifi/wifi_ap.c" "wifi/my_http_server.c" "wifi/my_http_file_server.c" "wifi/my_mount.c" "wifi/my_wifi_ota.c"
         "sd_card.c" "gpx_writer.c"  "ble/ble_csc.c" "ble/ble_hrm.c" "ble/ble_device.c"
         "led/led_strip_encoder.c" "led/ws2812.c"
         "pressure_common.c" "ms5611.c" "spl06.c"
