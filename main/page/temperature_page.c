@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <esp_log.h>
+#include "esp_wifi.h"
+#include <esp_wifi_types.h>
 
 #include "bike_common.h"
 #include "lcd/epdpaint.h"
@@ -112,20 +114,15 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     battery_view_draw(battery_view, epd_paint, battery_get_level(), loop_cnt);
     battery_view_deinit(battery_view);
 
-    // wifi icon
-    epd_paint_draw_bitmap(epd_paint, 34, 183, 22, 16,
+    wifi_mode_t wifi_mode;
+    esp_err_t err = esp_wifi_get_mode(&wifi_mode);
+    ESP_LOGI(TAG, "current wifi mdoe: %d, %d %s", wifi_mode, err, esp_err_to_name(err));
+    if (ESP_OK == err && wifi_mode != WIFI_MODE_NULL) {
+        // wifi icon
+        epd_paint_draw_bitmap(epd_paint, 34, 183, 22, 16,
                           (uint8_t *) icon_wifi_bmp_start,
                           icon_wifi_bmp_end - icon_wifi_bmp_start, 1);
-
-    // ble icon
-    epd_paint_draw_bitmap(epd_paint, 60, 183, 11, 16,
-                          (uint8_t *) icon_ble_bmp_start,
-                          icon_ble_bmp_end - icon_ble_bmp_start, 1);
-
-    // ble icon
-    epd_paint_draw_bitmap(epd_paint, 75, 183, 16, 16,
-                          (uint8_t *) icon_sat_bmp_start,
-                          icon_sat_bmp_end - icon_sat_bmp_start, 1);
+    }
 }
 
 bool temperature_page_key_click_handle(key_event_id_t key_event_type) {

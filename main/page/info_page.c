@@ -15,6 +15,7 @@
 #include "lcd/display.h"
 #include "wifi/wifi_ap.h"
 #include "lcd/epd_lcd_ssd1680.h"
+#include "page_manager.h"
 
 /*********************
  *      DEFINES
@@ -28,6 +29,11 @@ esp_app_desc_t running_app_info;
 const esp_partition_t *running_partition;
 
 bool info_page_key_click(key_event_id_t key_event_type) {
+    if (key_event_type == KEY_1_SHORT_CLICK || key_event_type == KEY_2_SHORT_CLICK) {
+        page_manager_close_page();
+        page_manager_request_update(false);
+        return true;
+    }
     return false;
 }
 

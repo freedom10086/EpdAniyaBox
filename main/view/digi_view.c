@@ -182,7 +182,7 @@ int draw_digi_number(digi_view_t *view, epd_paint_t *epd_paint, uint8_t number, 
 
 
 digi_view_t *digi_view_create(int x, int y, int digi_width, int digi_thick, int digi_gap) {
-    ESP_LOGI(TAG, "init digi view");
+    //ESP_LOGI(TAG, "init digi view");
     digi_view_t *view = malloc(sizeof(digi_view_t));
     if (!view) {
         ESP_LOGE(TAG, "no memory for init digi view");
@@ -195,7 +195,7 @@ digi_view_t *digi_view_create(int x, int y, int digi_width, int digi_thick, int 
     view->digi_thick = digi_thick;
     view->digi_gap = digi_gap;
 
-    ESP_LOGI(TAG, "digi view created");
+    //ESP_LOGI(TAG, "digi view created");
     return view;
 }
 

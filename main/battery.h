@@ -131,7 +131,7 @@ void battery_init(void);
 // mv
 int battery_get_voltage();
 
-// -1 -100  -1 is invalid
+// -1 ~ 100  -1 is invalid
 int8_t battery_get_level();
 
 bool battery_is_curving();

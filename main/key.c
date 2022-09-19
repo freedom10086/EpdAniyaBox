@@ -75,7 +75,7 @@ static void key_task_entry(void *arg) {
                 time_diff_ms = pdTICKS_TO_MS(tick_diff);
 
                 // configTICK_RATE_HZ = 1s
-                if (tick_diff > configTICK_RATE_HZ * 0.8f) {
+                if (tick_diff > configTICK_RATE_HZ * 0.6f) {
                     ESP_LOGI(TAG, "key %d long press", clicked_gpio);
                     esp_event_post_to(event_loop_handle,
                                       BIKE_KEY_EVENT,

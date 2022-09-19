@@ -209,7 +209,7 @@ static void sht31_task_entry(void *arg) {
         } else {
             post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_READ_FAILED);
         }
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(30000));
     }
 }
 

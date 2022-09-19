@@ -112,7 +112,7 @@ void enter_deep_sleep(int sleep_ts, lcd_ssd1680_panel_t *panel) {
     rtc_gpio_pulldown_dis(KEY_1_NUM);
 #endif
 
-    ESP_LOGI(TAG, "enter deep sleep mode");
+    ESP_LOGI(TAG, "enter deep sleep mode, sleep %ds", sleep_ts);
     esp_deep_sleep_start();
 }
 
@@ -209,7 +209,7 @@ static void guiTask(void *pvParameter) {
         // not first loop
         if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
             ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
-            ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
+            // ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
                 continue_time_out_count = 0;
             } else {
@@ -277,7 +277,7 @@ void request_display_update_handler(void *event_handler_arg, esp_event_base_t ev
 
 static void key_click_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
-    ESP_LOGI(TAG, "rev key click event %ld", event_id);
+    //ESP_LOGI(TAG, "rev key click event %ld", event_id);
     // if menu exist
     if (page_manager_has_menu()) {
         page_inst_t current_menu = page_manager_get_current_menu();
@@ -303,8 +303,22 @@ static void key_click_event_handler(void *event_handler_arg, esp_event_base_t ev
         case KEY_2_SHORT_CLICK:
             break;
         case KEY_1_LONG_CLICK:
-            page_manager_show_menu("menu");
-            page_manager_request_update(false);
+            if (page_manager_has_menu()) {
+                page_manager_close_menu();
+                page_manager_request_update(false);
+            } else {
+                page_manager_show_menu("menu");
+                page_manager_request_update(false);
+            }
+            break;
+        case KEY_2_LONG_CLICK:
+            if (page_manager_get_current_index() == TEMP_PAGE_INDEX) {
+                page_manager_switch_page("image");
+                page_manager_request_update(false);
+            } else {
+                page_manager_switch_page("temperature");
+                page_manager_request_update(false);
+            }
         default:
             break;
     }

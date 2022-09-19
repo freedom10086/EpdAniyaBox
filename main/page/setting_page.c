@@ -98,30 +98,9 @@ void setting_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 bool setting_page_key_click(key_event_id_t key_event_type) {
     if (KEY_1_SHORT_CLICK == key_event_type || KEY_2_SHORT_CLICK == key_event_type) {
         page_manager_close_page();
+        page_manager_request_update(false);
         return true;
     }
-
-//    if (KEY_2_SHORT_CLICK == key_event_type) {
-//        if (list_view) {
-//            list_view->current_index = (list_view->current_index + 1) % list_view->element_count;
-//            page_manager_request_update(false);
-//            return true;
-//        }
-//    } else if (KEY_1_SHORT_CLICK == key_event_type) {
-//        if (list_view && list_view->current_index == 0) {
-//            // on off wifi
-//            if (wifi_on) {
-//                wifi_deinit_softap();
-//                wifi_on = false;
-//            } else {
-//                wifi_init_softap();
-//                wifi_on = true;
-//            }
-//            list_view_update_item(list_view, 0, wifi_on ? "clsoe wifi" : "open wifi");
-//            page_manager_request_update(false);
-//            return true;
-//        }
-//    }
     return false;
 }
 

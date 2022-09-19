@@ -22,7 +22,7 @@ void menu_page_on_create(void *arg) {
 }
 
 void menu_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
-    ESP_LOGI(TAG, "menu_page_draw");
+    //ESP_LOGI(TAG, "menu_page_draw");
     epd_paint_clear_range(epd_paint, 0, MENU_START_Y, LCD_H_RES, LCD_V_RES, 0);
 
     // draw line

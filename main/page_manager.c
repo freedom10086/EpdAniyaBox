@@ -14,6 +14,7 @@
 #include "page/menu_page.h"
 #include "page/manual_page.h"
 #include "page/setting_page.h"
+#include "battery.h"
 
 #define TAG "page-manager"
 #define TOTAL_PAGE 8
@@ -47,7 +48,7 @@ static page_inst_t pages[] = {
                 .on_destroy_page = image_page_on_destroy,
                 .enter_sleep_handler = image_page_on_enter_sleep,
         },
-        [4] = {
+        [TEMP_PAGE_INDEX] = {
                 .page_name = "temperature",
                 .on_draw_page = temperature_page_draw,
                 .key_click_handler = temperature_page_key_click_handle,
@@ -195,6 +196,20 @@ int page_manager_enter_sleep(uint32_t loop_cnt) {
     if (current_page.enter_sleep_handler != NULL) {
         return current_page.enter_sleep_handler((void *) loop_cnt);
     }
+
+    int8_t battery_level = battery_get_level();
+    if (battery_level > 50) {
+        return DEFAULT_SLEEP_TS;
+    } else if (battery_level > 20) {
+        return DEFAULT_SLEEP_TS * 3;
+    } else if (battery_level > 3) {
+        return DEFAULT_SLEEP_TS * 5;
+    } else if (battery_level >= 0) {
+        // battery low never wake up
+        return 0;
+    }
+
+    // battery is invalid use default sleep time
     return DEFAULT_SLEEP_TS;
 }
 

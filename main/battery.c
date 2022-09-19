@@ -180,7 +180,7 @@ esp_err_t load_battery_curve(void) {
             return err;
         }
         for (int i = 0; i < battery_curve_size / sizeof(uint32_t); i++) {
-            printf("%d: %ld\n", i + 1, battery_curve_data[i]);
+            // printf("%d: %ld\n", i + 1, battery_curve_data[i]);
             // pre handle battery curve data after master small or equals to before
             if (i > 0 && battery_curve_data[i] > battery_curve_data[i - 1]) {
                 battery_curve_data[i] = battery_curve_data[i - 1];

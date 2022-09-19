@@ -6,6 +6,7 @@
 #include "lcd/epdpaint.h"
 #include "key.h"
 
+#define TEMP_PAGE_INDEX 4
 #define IMAGE_PAGE_INDEX 3
 
 typedef void (*on_draw_page_cb)(epd_paint_t *epd_paint, uint32_t loop_cnt);

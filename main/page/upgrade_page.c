@@ -13,6 +13,7 @@
 #include "bike_common.h"
 #include "wifi/my_http_server.h"
 #include "page_manager.h"
+#include "battery.h"
 
 #define TAG "upgrade-page"
 #define HTTP_PREFIX "http://"
@@ -61,7 +62,6 @@ static void ota_event_handler(void *event_handler_arg, esp_event_base_t event_ba
 }
 
 void upgrade_page_on_create(void *args) {
-    state = INIT;
     // reg ota event
     esp_event_handler_register_with(event_loop_handle,
                                     BIKE_OTA_EVENT, ESP_EVENT_ANY_ID,
@@ -78,9 +78,16 @@ void upgrade_page_on_create(void *args) {
     }
     ESP_LOGI(TAG, "current wifi status: %s", wifi_on ? "on" : "off");
 
-    if (!wifi_on) {
-        wifi_init_softap();
-        wifi_on = true;
+    int8_t battery_level = battery_get_level();
+    if (battery_level >= 0 && battery_level <= 15) {
+        // battery is low
+        state = INIT_LOW_BATTERY;
+    } else {
+        if (!wifi_on) {
+            wifi_init_softap();
+            wifi_on = true;
+        }
+        state = INIT;
     }
 }
 
@@ -93,7 +100,22 @@ void upgrade_page_on_destroy(void *args) {
 
 void upgrade_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 0);
-    if (state == INIT) {
+    if (state == INIT_LOW_BATTERY) {
+        // upgrade failed icon
+        epd_paint_draw_bitmap(epd_paint, 83, 62, 32, 32,
+                              (uint8_t *) ic_close_bmp_start,
+                              ic_close_bmp_end - ic_close_bmp_start, 1);
+
+        // 电量过低无法升级!
+        uint16_t data[] = {0xE7B5, 0xBFC1, 0xFDB9, 0xCDB5, 0xDECE, 0xA8B7, 0xFDC9, 0xB6BC, 0x21, 0x00};
+        epd_paint_draw_string_at(epd_paint, 36, 114, (char *) data, &Font_HZK16, 1);
+
+        // 按任意键退出
+        epd_paint_draw_string_at(epd_paint, 52, 174,
+                                 (char[]) {0xB0, 0xB4, 0xC8, 0xCE, 0xD2, 0xE2, 0xBC,
+                                           0xFC, 0xCD, 0xCB, 0xB3, 0xF6, 0x00},
+                                 &Font_HZK16, 1);
+    } else if (state == INIT) {
         epd_paint_clear(epd_paint, 0);
         int y = 8;
         epd_paint_draw_string_at(epd_paint, 2, y,
@@ -132,6 +154,7 @@ void upgrade_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
             y += 20;
         }
 
+        // 按任意键退出
         epd_paint_draw_string_at(epd_paint, 52, 174,
                                  (char[]) {0xB0, 0xB4, 0xC8, 0xCE, 0xD2, 0xE2, 0xBC,
                                            0xFC, 0xCD, 0xCB, 0xB3, 0xF6, 0x00},
@@ -185,8 +208,13 @@ void upgrade_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 }
 
 bool upgrade_page_key_click_handle(key_event_id_t key_event_type) {
-    if (state == INIT) {
-        page_manager_close_page();
+    if (state == INIT || state == INIT_LOW_BATTERY) {
+        if (key_event_type == KEY_1_SHORT_CLICK || key_event_type == KEY_2_SHORT_CLICK) {
+            page_manager_close_page();
+            page_manager_request_update(false);
+            return true;
+        }
+        return false;
     } else if (state == UPGRADE_FAILED) {
         esp_restart();
     } else if (state == UPGRADE_SUCCESS) {

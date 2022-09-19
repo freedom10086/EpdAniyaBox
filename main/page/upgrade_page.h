@@ -5,6 +5,7 @@
 #include "key.h"
 
 enum upgrade_state_t {
+    INIT_LOW_BATTERY,
     INIT,
     UPGRADING,
     UPGRADE_FAILED,

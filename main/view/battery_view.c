@@ -8,7 +8,7 @@
 #define LINE_THICK 1
 
 battery_view_t *battery_view_create(int x, int y, int width, int height) {
-    ESP_LOGI(TAG, "init battery view");
+    //ESP_LOGI(TAG, "init battery view");
     battery_view_t *view = malloc(sizeof(battery_view_t));
     if (!view) {
         ESP_LOGE(TAG, "no memory for init digi view");
@@ -20,7 +20,7 @@ battery_view_t *battery_view_create(int x, int y, int width, int height) {
     view->width = width;
     view->height = height;
 
-    ESP_LOGI(TAG, "battery view created");
+    //ESP_LOGI(TAG, "battery view created");
     return view;
 }
 
@@ -52,7 +52,7 @@ void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, int
         // center level
         uint8_t battery_total_pixel = battery_view->width - LINE_THICK * 2 - head_w - 2;
         uint8_t current_level_pixel = level * battery_total_pixel / 100;
-        ESP_LOGI(TAG, "battery view level %d", level);
+        // ESP_LOGI(TAG, "battery view level %d", level);
         if (current_level_pixel > 0) {
             epd_paint_draw_filled_rectangle(epd_paint, battery_view->x + LINE_THICK + 1,
                                             battery_view->y + LINE_THICK + 1,
