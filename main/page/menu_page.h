@@ -12,8 +12,6 @@ void menu_page_after_draw(uint32_t loop_cnt);
 
 bool menu_page_key_click(key_event_id_t key_event_type);
 
-int menu_page_on_enter_sleep(void *args);
-
 void menu_page_on_destroy(void *arg);
 
 #endif

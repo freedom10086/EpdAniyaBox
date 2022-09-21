@@ -5,7 +5,6 @@
 #include "page_manager.h"
 #include "bike_common.h"
 
-#include "page/main_page.h"
 #include "page/test_page.h"
 #include "page/info_page.h"
 #include "page/image_page.h"
@@ -14,6 +13,7 @@
 #include "page/menu_page.h"
 #include "page/manual_page.h"
 #include "page/setting_page.h"
+#include "page/setting_list_page.h"
 #include "battery.h"
 
 #define TAG "page-manager"
@@ -25,9 +25,12 @@ static int8_t menu_index = -1;
 RTC_DATA_ATTR static int8_t current_page_index = -1;
 
 static page_inst_t pages[] = {
-        [0] = {
-                .page_name = "main",
-                .on_draw_page = main_page_draw,
+        [TEMP_PAGE_INDEX] = {
+                .page_name = "temperature",
+                .on_draw_page = temperature_page_draw,
+                .key_click_handler = temperature_page_key_click_handle,
+                .on_create_page = temperature_page_on_create,
+                .on_destroy_page = temperature_page_on_destroy
         },
         [1] = {
                 .page_name = "info",
@@ -48,14 +51,7 @@ static page_inst_t pages[] = {
                 .on_destroy_page = image_page_on_destroy,
                 .enter_sleep_handler = image_page_on_enter_sleep,
         },
-        [TEMP_PAGE_INDEX] = {
-                .page_name = "temperature",
-                .on_draw_page = temperature_page_draw,
-                .key_click_handler = temperature_page_key_click_handle,
-                .on_create_page = temperature_page_on_create,
-                .on_destroy_page = temperature_page_on_destroy
-        },
-        [5] = {
+        [4] = {
                 .page_name = "upgrade",
                 .on_draw_page = upgrade_page_draw,
                 .key_click_handler = upgrade_page_key_click_handle,
@@ -63,20 +59,29 @@ static page_inst_t pages[] = {
                 .on_destroy_page = upgrade_page_on_destroy,
                 .enter_sleep_handler = upgrade_page_on_enter_sleep,
         },
-        [6] = {
+        [5] = {
                 .page_name = "manual",
                 .on_draw_page = manual_page_draw,
                 .key_click_handler = manual_page_key_click,
                 .on_create_page = manual_page_on_create,
                 .on_destroy_page = manual_page_on_destroy,
         },
-        [7] = {
+        [6] = {
                 .page_name = "setting",
                 .on_draw_page = setting_page_draw,
                 .key_click_handler = setting_page_key_click,
                 .on_create_page = setting_page_on_create,
                 .on_destroy_page = setting_page_on_destroy,
                 .enter_sleep_handler = setting_page_on_enter_sleep,
+        },
+        [7] = {
+                .page_name = "setting-list",
+                .on_draw_page = setting_list_page_draw,
+                .key_click_handler = setting_list_page_key_click,
+                .on_create_page = setting_list_page_on_create,
+                .on_destroy_page = setting_list_page_on_destroy,
+                .enter_sleep_handler = setting_list_page_on_enter_sleep,
+                .after_draw_page = setting_list_page_after_draw,
         }
 };
 
@@ -87,7 +92,6 @@ static page_inst_t menus[] = {
                 .key_click_handler = menu_page_key_click,
                 .on_create_page = menu_page_on_create,
                 .on_destroy_page = menu_page_on_destroy,
-                .enter_sleep_handler = menu_page_on_enter_sleep,
                 .after_draw_page = menu_page_after_draw,
         }
 };
@@ -192,6 +196,12 @@ void page_manager_close_menu() {
 }
 
 int page_manager_enter_sleep(uint32_t loop_cnt) {
+    if (page_manager_has_menu()) {
+        page_manager_close_menu();
+        page_manager_request_update(false);
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+
     page_inst_t current_page = page_manager_get_current_page();
     if (current_page.enter_sleep_handler != NULL) {
         return current_page.enter_sleep_handler((void *) loop_cnt);

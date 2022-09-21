@@ -16,6 +16,7 @@
 #include "battery.h"
 #include "bike_common.h"
 #include "static/static.h"
+#include "page_manager.h"
 
 #define TAG "temp-page"
 
@@ -35,18 +36,19 @@ static bool temperature_valid = false;
 static float humility;
 static bool humility_valid = false;
 
-static void
-ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
-                              void *event_data) {
+static void temp_sensor_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     sht31_data_t *data = NULL;
     switch (event_id) {
         case SHT31_SENSOR_UPDATE:
             data = (sht31_data_t *) event_data;
             ESP_LOGI(TAG, "temp: %f, hum: %f", data->temp, data->hum);
             temperature = data->temp;
-            temperature_valid = true;
-
             humility = data->hum;
+
+            if (temperature_valid == false) {
+                page_manager_request_update(false);
+            }
+            temperature_valid = true;
             humility_valid = true;
             break;
         case SHT31_SENSOR_READ_FAILED:
@@ -61,7 +63,7 @@ void temperature_page_on_create(void *args) {
     ESP_LOGI(TAG, "=== on create ===");
     esp_event_handler_register_with(event_loop_handle,
                                     BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                    ble_temp_sensor_event_handler, NULL);
+                                    temp_sensor_event_handler, NULL);
     sht31_init();
 }
 
@@ -69,7 +71,7 @@ void temperature_page_on_destroy(void *args) {
     ESP_LOGI(TAG, "=== on destroy ===");
     esp_event_handler_unregister_with(event_loop_handle,
                                       BIKE_TEMP_HUM_SENSOR_EVENT, ESP_EVENT_ANY_ID,
-                                      ble_temp_sensor_event_handler);
+                                      temp_sensor_event_handler);
 }
 
 void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
@@ -120,8 +122,8 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     if (ESP_OK == err && wifi_mode != WIFI_MODE_NULL) {
         // wifi icon
         epd_paint_draw_bitmap(epd_paint, 34, 183, 22, 16,
-                          (uint8_t *) icon_wifi_bmp_start,
-                          icon_wifi_bmp_end - icon_wifi_bmp_start, 1);
+                              (uint8_t *) icon_wifi_bmp_start,
+                              icon_wifi_bmp_end - icon_wifi_bmp_start, 1);
     }
 }
 

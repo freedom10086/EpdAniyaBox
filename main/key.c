@@ -13,6 +13,7 @@
 
 
 #define TAG "keyboard"
+#define KEY_CLICK_MIN_GAP 30
 
 ESP_EVENT_DEFINE_BASE(BIKE_KEY_EVENT);
 
@@ -59,12 +60,13 @@ static void key_task_entry(void *arg) {
 
     gpio_num_t clicked_gpio;
     static uint32_t tick_count[2];
-    uint32_t tick_diff;
+    static uint32_t key_up_tick_count[2];
+    uint32_t tick_diff, key_up_tick_diff;
     uint32_t time_diff_ms;
 
     while (1) {
         if (xQueueReceive(event_queue, &clicked_gpio, portMAX_DELAY)) {
-            vTaskDelay(pdMS_TO_TICKS(2));
+            // vTaskDelay(pdMS_TO_TICKS(2));
             uint8_t index = KEY_1_NUM == clicked_gpio ? 0 : 1;
 
             if (gpio_get_level(clicked_gpio) == 0) {
@@ -74,8 +76,10 @@ static void key_task_entry(void *arg) {
                 tick_diff = xTaskGetTickCount() - tick_count[index];
                 time_diff_ms = pdTICKS_TO_MS(tick_diff);
 
+                key_up_tick_diff = xTaskGetTickCount() - key_up_tick_count[index];
+
                 // configTICK_RATE_HZ = 1s
-                if (tick_diff > configTICK_RATE_HZ * 0.6f) {
+                if (tick_diff > configTICK_RATE_HZ * 0.5f) {
                     ESP_LOGI(TAG, "key %d long press", clicked_gpio);
                     esp_event_post_to(event_loop_handle,
                                       BIKE_KEY_EVENT,
@@ -83,7 +87,7 @@ static void key_task_entry(void *arg) {
                                       &time_diff_ms,
                                       sizeof(time_diff_ms),
                                       100 / portTICK_PERIOD_MS);
-                } else {
+                } else if (pdTICKS_TO_MS(key_up_tick_diff) > KEY_CLICK_MIN_GAP) {
                     ESP_LOGI(TAG, "key %d short press", clicked_gpio);
                     esp_event_post_to(event_loop_handle,
                                       BIKE_KEY_EVENT,
@@ -91,7 +95,11 @@ static void key_task_entry(void *arg) {
                                       &time_diff_ms,
                                       sizeof(time_diff_ms),
                                       100 / portTICK_PERIOD_MS);
+                } else {
+                    ESP_LOGW(TAG, "key up to quickly gpio:%d, time diff:%ldms", clicked_gpio, pdTICKS_TO_MS(key_up_tick_diff));
                 }
+
+                key_up_tick_count[index] = xTaskGetTickCount();
             }
 
             tick_count[index] = xTaskGetTickCount();

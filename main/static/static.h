@@ -42,4 +42,7 @@ extern const uint8_t ic_close_bmp_end[] asm("_binary_ic_close_32_bmp_end");
 
 extern const uint8_t ic_reboot_bmp_start[] asm("_binary_ic_reboot_32_bmp_start");
 extern const uint8_t ic_reboot_bmp_end[] asm("_binary_ic_reboot_32_bmp_end");
+
+extern const uint8_t ic_back_bmp_start[] asm("_binary_ic_back_32_bmp_start");
+extern const uint8_t ic_back_bmp_end[] asm("_binary_ic_back_32_bmp_end");
 #endif

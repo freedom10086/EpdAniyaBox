@@ -13,7 +13,6 @@
 #include "esp_log.h"
 #include "driver/gpio.h"
 #include "driver/spi_master.h"
-#include "page/main_page.h"
 #include "nmea_parser.h"
 #include "ble/ble_device.h"
 #include "sd_card.h"
@@ -89,7 +88,7 @@ pressure_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
             data = (spl06_data_t *) event_data;
             ESP_LOGI(TAG, "pressure: %.2f,temp: %.2f, altitude: %.2f", data->pressure, data->temp, data->altitude);
             // main_page_update_temperature(data->temp);
-            main_page_update_altitude(data->altitude);
+            // main_page_update_altitude(data->altitude);
             break;
         default:
             break;
@@ -111,8 +110,8 @@ ble_csc_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
                      data->wheel_cadence,
                      data->wheel_speed,
                      data->crank_cadence);
-            main_page_update_speed(data->wheel_speed);
-            main_page_update_crank_cadence(data->crank_cadence);
+            // main_page_update_speed(data->wheel_speed);
+            //  main_page_update_crank_cadence(data->crank_cadence);
             break;
         default:
             break;
@@ -127,7 +126,7 @@ ble_hrm_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_bas
         case BLE_HRM_SENSOR_UPDATE:
             data = (ble_hrm_data_t *) event_data;
             ESP_LOGI(TAG, "heart_rate: %d", data->heart_rate);
-            main_page_update_heart_rate(data->heart_rate);
+            // main_page_update_heart_rate(data->heart_rate);
             break;
         default:
             break;
@@ -142,7 +141,7 @@ ble_temp_sensor_event_handler(void *event_handler_arg, esp_event_base_t event_ba
         case SHT31_SENSOR_UPDATE:
             data = (sht31_data_t *) event_data;
             ESP_LOGI(TAG, "temp: %f, hum: %f", data->temp, data->hum);
-            main_page_update_temp_hum(data->temp, data->hum);
+            // main_page_update_temp_hum(data->temp, data->hum);
             break;
         default:
             break;
