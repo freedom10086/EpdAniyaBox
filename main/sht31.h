@@ -5,6 +5,9 @@
 
 ESP_EVENT_DECLARE_BASE(BIKE_TEMP_HUM_SENSOR_EVENT);
 
+#define I2C_SCL_IO 2
+#define I2C_SDA_IO 3
+
 typedef struct {
     float temp;
     float hum;

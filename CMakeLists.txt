@@ -7,4 +7,4 @@ cmake_minimum_required(VERSION 3.5)
 set(IDF_TARGET "esp32c3")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(my-super-bike)
+project(epd-aniya-box)

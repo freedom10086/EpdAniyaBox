@@ -1,74 +1,41 @@
-# My Super Bike
+# Epd Aniya Box
 
 `idf.py build`
 
 `idf.py -p COM4 build flash monitor`
 
 ---
+主控esp32c3(同样支持esp32 esp32s3)
 
-1.54尺寸
-37.3 (+ 2mm) * 31.8
+立创开源地址: 
+[https://oshwhub.com/freedopm/aniya_epd](https://oshwhub.com/freedopm/aniya_epd)
 
-裸屏尺寸
+
+200 * 200 1in54 墨水屏裸屏尺寸（ssd1680）
 - 1.2mm厚
 - 显示区域 28mm
 - 上左右黑边 1.9mm
 - 下黑边 7.6mm
 - 下排线预留 2mm
-
-MIC
-- IO7 -- WS 
-- IO15 -- DATA 
-- IO16 -- SCK
-
-WS2812
-- IO38
-
-SD
-- IO3 SCK
-- IO4 MOSI
-- IO0 MISO
-- IO8 CS
-
-PSRAM
-- IO35
-- IO36
-- IO37
-
-SPL06 I2C
-- IO39 I2C_SCL
-- IO40 I2C_SDA
-
-GPS
-- IO17 UART_TXD
-- IO18 UART_RXD
+- 37.3 (+ 2mm) * 31.8
 
 SPI LCD
-- IO1 RST
-- IO2 BUSY
-- IO9 DC
-- IO10 CS
-- IO11 MOSI
-- IO12 CLK
+- IO7 RST
+- IO8 BUSY
+- IO6 DC
+- IO5 CS
+- IO10 MOSI
+- IO4 CLK
 
-ZW800
-- IO45 - TOUCH
-- IO48 - RX
-- IO47 - TX
+按键
+- key 1 IO0
+- key 2 IO9
 
-FREE
-- IO5
-- IO6
-- IO13
-- IO14
-- IO19
-- IO20
-- IO21
-- IO41
-- IO42
+温湿度传感器sht31 i2c
+- SCL IO2
+- SDA IO3
 
 ---
-- [lvgl](https://docs.lvgl.io/master/intro/index.html)
 - [esp-idf](https://docs.espressif.com/projects/esp-idf/zh_CN/latest/esp32s3/get-started/index.html)
 
 ### 分区表

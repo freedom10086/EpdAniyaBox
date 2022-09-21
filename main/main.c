@@ -20,10 +20,8 @@
 
 #include "tools/kalman_filter.h"
 #include "ms5611.h"
-#include "led/ws2812.h"
 #include "spl06.h"
 #include "lcd/display.h"
-#include "zw800.h"
 #include "sht31.h"
 #include "key.h"
 #include "battery.h"
@@ -207,8 +205,6 @@ void app_main() {
     /* deinit NMEA parser library */
     // nmea_parser_deinit(nmea_hdl);
 
-    //ws2812_start();
-
     /**
      * key
      */
@@ -244,10 +240,6 @@ void app_main() {
 //    esp_event_handler_register_with(event_loop_handle,
 //                                    BIKE_PRESSURE_SENSOR_EVENT, ESP_EVENT_ANY_ID,
 //                                    pressure_sensor_event_handler, NULL);
-
-    // zw800 finger print sensor
-//    zw800_config_t zw800_config = ZW800_CONFIG_DEFAULT();
-//    zw800_init(&zw800_config, event_loop_handle);
 
     /**
      * sht31
