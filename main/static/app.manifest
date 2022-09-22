@@ -2,10 +2,9 @@ CACHE MANIFEST
 #v1.0.1
 
 CACHE:
-js/marked.js
-js/highlight.js
 index.html
 404.html
+ota.html
 
 NETWORK:
 *

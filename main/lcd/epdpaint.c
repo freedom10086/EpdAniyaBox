@@ -155,7 +155,7 @@ void
 epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16_t font_char, sFONT *font, int colored) {
     int i, j;
     unsigned int char_offset = (94 * (unsigned int) ((font_char & 0xff) - 0xa0 - 1) + ((font_char >> 8) - 0xa0 - 1))
-            * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
+                               * font->Height * (font->Width / 8 + (font->Width % 8 ? 1 : 0));
     const uint8_t *ptr = &font->table[char_offset];
 
     for (j = 0; j < font->Height; j++) {
@@ -333,6 +333,62 @@ void epd_paint_draw_filled_circle(epd_paint_t *epd_paint, int x, int y, int radi
     } while (x_pos <= 0);
 }
 
+inline uint8_t bgr_to_gray(pixel_color c) {
+    return (c.red * 30 + c.green * 59 + c.blue * 11) / 100;
+}
+
+inline uint8_t saturated_add(uint8_t val1, int8_t val2) {
+    int16_t tmp = (int16_t) val1 + (int16_t) val2;
+    if (tmp > 255) {
+        return 255;
+    } else if (tmp < 0) {
+        return 0;
+    } else {
+        return tmp;
+    }
+}
+
+void dither(uint8_t *gray_data, uint8_t width, uint8_t height) {
+    int err;
+    int8_t a, b, c, d;
+    for (int i = 0; i < width; i++) {
+        for (int j = 0; j < height; j++) {
+            if (gray_data[i * width + j] > 127) {
+                err = gray_data[i * width + j] - 255;
+                gray_data[i * width + j] = 255;
+            } else {
+                err = gray_data[i * width + j] - 0;
+                gray_data[i * width + j] = 0;
+            }
+
+            a = (err * 7) / 16;
+            b = (err * 1) / 16;
+            c = (err * 5) / 16;
+            d = (err * 3) / 16;
+
+            if ((i != (height - 1)) && (j != 0) && (j != (width - 1))) {
+                gray_data[i * width + j] = saturated_add(gray_data[i * width + j], a);
+                gray_data[(i + 1) * width + j + 1] = saturated_add(gray_data[(i + 1) * width + j + 1], b);
+                gray_data[(i + 1) * width + j] = saturated_add(gray_data[(i + 1) * width + j], c);
+                gray_data[(i + 1) * width + j - 1] = saturated_add(gray_data[(i + 1) * width + j - 1], d);
+            }
+        }
+    }
+}
+
+static void draw_gray_color(epd_paint_t *epd_paint, int x, int y, int end_x, int end_y, const uint8_t *bmp_data, int colored) {
+    uint8_t gray_color;
+    for (int j = y; j < end_y; ++j) {
+        for (int i = x; i < end_x; ++i) {
+            gray_color = bmp_data[(j - y) * (end_x - x) + (i - x)];
+            if (!colored) {
+                gray_color = 255 - gray_color;
+            }
+            epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
+        }
+    }
+}
+
 void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int height, uint8_t *bmp_data,
                            uint16_t data_size, int colored) {
     bmp_header bmpHeader;
@@ -360,12 +416,12 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
             for (int i = x; i < end_x; ++i) {
                 bmp_get_pixel(&out_color, bmp_img, (i - x), (j - y));
                 // rgb 30% 50% 20%
-                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
+                gray_color = bgr_to_gray(out_color);
                 if (!colored) {
                     gray_color = 255 - gray_color;
                 }
                 //ESP_LOGI(TAG, "x:%d y:%d color:%d", x, y, gray_color);
-                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 132 ? 0 : 1);
+                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
             }
         }
     }
@@ -396,8 +452,8 @@ void fill_err_color(pixel_color *out_color, uint16_t x, uint16_t y) {
 }
 
 void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, int colored) {
-    bmp_img_file_common bmpHeader;
-    enum bmp_error err = bmp_header_read_file(&bmpHeader, file);
+    bmp_img_file_common bmp_header;
+    enum bmp_error err = bmp_header_read_file(&bmp_header, file);
     if (err != BMP_OK) {
         // not valid bmp pic just draw rec
         epd_paint_draw_rectangle(epd_paint, x, y, x + width - 1, y + height - 1, colored);
@@ -405,20 +461,19 @@ void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width,
         epd_paint_draw_line(epd_paint, x, y + height, x + width, y, colored);
     } else {
         pixel_color out_color;
-        uint8_t gray_color;
 
         uint16_t end_x = min(x + width, epd_paint->width);
-        end_x = min(end_x, bmpHeader.img_header.biWidth);
+        end_x = min(end_x, bmp_header.img_header.biWidth);
 
         uint16_t end_y = min(y + height, epd_paint->height);
-        end_y = min(end_y, abs(bmpHeader.img_header.biWidth));
+        end_y = min(end_y, abs(bmp_header.img_header.biWidth));
 
         bool error = false;
-
+        uint8_t *gray_color_data = (uint8_t *) malloc((end_y - y) * (end_x - x));
         for (int j = y; j < end_y; ++j) {
             for (int i = x; i < end_x; ++i) {
                 if (!error) {
-                    enum bmp_error pixel_error = bmp_file_get_pixel(&out_color, &bmpHeader, (i - x), (j - y), file);
+                    enum bmp_error pixel_error = bmp_file_get_pixel(&out_color, &bmp_header, (i - x), (j - y), file);
                     if (pixel_error != BMP_OK) {
                         error = true;
                     }
@@ -426,17 +481,16 @@ void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width,
                 if (error) {
                     fill_err_color(&out_color, (i - x), (j - y));
                 }
-                // rgb 30% 50% 20%
-                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
-                if (!colored) {
-                    gray_color = 255 - gray_color;
-                }
-                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 132 ? 0 : 1);
+                gray_color_data[(j - y) * (end_x - x) + (i - x)] = bgr_to_gray(out_color);
             }
         }
+
+        dither(gray_color_data, end_x - x, end_y - y);
+        draw_gray_color(epd_paint, x, y, end_x, end_y, gray_color_data, colored);
+        free(gray_color_data);
     }
 
-    bmp_file_free(&bmpHeader);
+    bmp_file_free(&bmp_header);
 }
 
 void
@@ -460,8 +514,8 @@ epd_paint_draw_jpg_file(epd_paint_t *epd_paint, int x, int y, int width, int hei
 
         int i, j;
         pixel_color out_color;
-        uint8_t gray_color;
         bool error = false;
+        uint8_t *gray_color_data = (uint8_t *) malloc((end_y - y) * (end_x - x));
 
         for (j = y; j < end_y; ++j) {
             for (i = x; i < end_x; ++i) {
@@ -473,24 +527,19 @@ epd_paint_draw_jpg_file(epd_paint_t *epd_paint, int x, int y, int width, int hei
                         error = true;
                     }
                 }
-
                 if (error) {
                     fill_err_color(&out_color, (i - x), (j - y));
                 }
-
-                // rgb 30% 50% 20%
-                // ESP_LOGW(TAG, "out color r:%d g:%d b:%d", out_color.red, out_color.green, out_color.blue);
-                gray_color = (out_color.red * 3 + out_color.green * 5 + out_color.blue * 2) / 10;
-                if (!colored) {
-                    gray_color = 255 - gray_color;
-                }
-
-                epd_paint_draw_absolute_pixel(epd_paint, i, j, gray_color >= 128 ? 0 : 1);
+                gray_color_data[(j - y) * (end_x - x) + (i - x)] = bgr_to_gray(out_color);
             }
         }
+
+        dither(gray_color_data, end_x - x, end_y - y);
+        draw_gray_color(epd_paint, x, y, end_x, end_y, gray_color_data, colored);
+        free(gray_color_data);
+
         jpg_file_free(&jpg_header);
     }
-
 
 }
 

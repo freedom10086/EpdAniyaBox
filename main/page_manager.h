@@ -25,6 +25,7 @@ typedef int (*get_prefer_sleep_ts_cb)(uint32_t loop_cnt);
 
 typedef struct {
     char *page_name;
+    int8_t parent_page_index;
     on_draw_page_cb on_draw_page;
     key_click_handler key_click_handler;
     on_create_page_cb on_create_page;

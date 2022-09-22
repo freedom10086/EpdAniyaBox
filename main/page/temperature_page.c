@@ -46,6 +46,7 @@ static void temp_sensor_event_handler(void *arg, esp_event_base_t event_base, in
             humility = data->hum;
 
             if (temperature_valid == false) {
+                ESP_LOGI(TAG, "temp current is invalid request update...");
                 page_manager_request_update(false);
             }
             temperature_valid = true;

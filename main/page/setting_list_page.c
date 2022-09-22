@@ -36,21 +36,24 @@ void setting_list_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
                           (uint8_t *) ic_back_bmp_start,
                           ic_back_bmp_end - ic_back_bmp_start, 1);
     uint16_t close[] = {0xCBCD, 0xF6B3, 0x00};
-    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 0 + TEXT_PADDING_Y, (char *) close, &Font_HZK16, 1);
+    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 0 + TEXT_PADDING_Y,
+                             (char *) close, &Font_HZK16, 1);
 
     // 1. info
     epd_paint_draw_bitmap(epd_paint, 9, SETTING_ITEM_HEIGHT * 1 + PADDING_Y, 32, 32,
                           (uint8_t *) ic_info_bmp_start,
                           ic_info_bmp_end - ic_info_bmp_start, 1);
     uint16_t info[] = {0xD8B9, 0xDAD3, 0x00};
-    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 1 + TEXT_PADDING_Y, (char *) info, &Font_HZK16, 1);
+    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 1 + TEXT_PADDING_Y,
+                             (char *) info, &Font_HZK16, 1);
 
     // 2. manual
     epd_paint_draw_bitmap(epd_paint, 10, SETTING_ITEM_HEIGHT * 2 + PADDING_Y, 30, 32,
                           (uint8_t *) ic_manual_bmp_start,
                           ic_manual_bmp_end - ic_manual_bmp_start, 1);
     uint16_t manual[] = {0xB5CB, 0xF7C3, 0x00};
-    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 2 + TEXT_PADDING_Y, (char *) manual, &Font_HZK16, 1);
+    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 2 + TEXT_PADDING_Y,
+                             (char *) manual, &Font_HZK16, 1);
 
 
     // 3. upgrade
@@ -58,14 +61,16 @@ void setting_list_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
                           (uint8_t *) ic_upgrade_bmp_start,
                           ic_upgrade_bmp_end - ic_upgrade_bmp_start, 1);
     uint16_t upgrade[] = {0xFDC9, 0xB6BC, 0x00};
-    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 3 + TEXT_PADDING_Y, (char *) upgrade, &Font_HZK16, 1);
+    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 3 + TEXT_PADDING_Y,
+                             (char *) upgrade, &Font_HZK16, 1);
 
     // 4. reboot
     epd_paint_draw_bitmap(epd_paint, 9, SETTING_ITEM_HEIGHT * 4 + PADDING_Y, 32, 32,
                           (uint8_t *) ic_reboot_bmp_start,
                           ic_reboot_bmp_end - ic_reboot_bmp_start, 1);
     uint16_t reboot[] = {0xD8D6, 0xF4C6, 0x00};
-    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 4 + TEXT_PADDING_Y, (char *) reboot, &Font_HZK16, 1);
+    epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, SETTING_ITEM_HEIGHT * 4 + TEXT_PADDING_Y,
+                             (char *) reboot, &Font_HZK16, 1);
 
     // select item
     uint8_t start_y = current_index * SETTING_ITEM_HEIGHT;
@@ -102,8 +107,6 @@ bool setting_list_page_key_click(key_event_id_t key_event_type) {
     if (switching_index) {
         ESP_LOGW(TAG, "handle pre click ignore %d", key_event_type);
         return true;
-    } else {
-        ESP_LOGI(TAG, "click %d", key_event_type);
     }
     switch (key_event_type) {
         case KEY_1_SHORT_CLICK:

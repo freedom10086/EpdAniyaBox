@@ -106,8 +106,9 @@ int8_t page_manager_get_current_index() {
     return current_page_index;
 }
 
-void page_manager_switch_page_by_index(int8_t dest_page_index) {
+void page_manager_switch_page_by_index(int8_t dest_page_index, bool open_by_parent) {
     if (current_page_index == dest_page_index) {
+        ESP_LOGW(TAG, "dest page is current %d", dest_page_index);
         return;
     }
     if (dest_page_index < 0) {
@@ -120,8 +121,11 @@ void page_manager_switch_page_by_index(int8_t dest_page_index) {
              pages[dest_page_index].page_name);
 
     // new page on create
+    if (open_by_parent) {
+        pages[dest_page_index].parent_page_index = current_page_index;
+    }
     if (pages[dest_page_index].on_create_page != NULL) {
-        pages[dest_page_index].on_create_page(NULL);
+        pages[dest_page_index].on_create_page(&current_page_index);
         ESP_LOGI(TAG, "page %s on create", pages[dest_page_index].page_name);
     }
     pre_page_index = current_page_index;
@@ -144,10 +148,10 @@ void page_manager_switch_page(char *page_name) {
     }
     if (idx == -1) {
         ESP_LOGE(TAG, "can not find page %s", page_name);
-        page_manager_switch_page_by_index(0);
+        page_manager_switch_page_by_index(0, true);
         return;
     }
-    page_manager_switch_page_by_index(idx);
+    page_manager_switch_page_by_index(idx, true);
 }
 
 void page_manager_close_page() {
@@ -155,7 +159,12 @@ void page_manager_close_page() {
         ESP_LOGE(TAG, "can not close curent page no pre page");
         return;
     }
-    page_manager_switch_page_by_index(pre_page_index);
+    page_inst_t curr_page = page_manager_get_current_page();
+    if (curr_page.parent_page_index >= 0) {
+        page_manager_switch_page_by_index(curr_page.parent_page_index, false);
+    } else {
+        page_manager_switch_page_by_index(pre_page_index, false);
+    }
 }
 
 page_inst_t page_manager_get_current_page() {

@@ -49,8 +49,10 @@ ESP_EVENT_DEFINE_BASE(BIKE_REQUEST_UPDATE_DISPLAY_EVENT);
  **********************/
 static void guiTask(void *pvParameter);
 
-static TaskHandle_t xTaskToNotify = NULL;
+static TaskHandle_t x_update_notify_handl = NULL;
 static uint32_t boot_cnt = 0;
+bool updating = false;
+bool holding_updating = false;
 
 bool spi_driver_init(int host,
                      int miso_pin, int mosi_pin, int sclk_pin,
@@ -147,7 +149,8 @@ static void guiTask(void *pvParameter) {
         page_manager_init("temperature");
     }
 
-    xTaskToNotify = xTaskGetCurrentTaskHandle();
+    x_update_notify_handl = xTaskGetCurrentTaskHandle();
+
     spi_driver_init(TFT_SPI_HOST,
                     DISP_SPI_MISO, DISP_SPI_MOSI, DISP_SPI_CLK,
                     DISP_BUFF_SIZE, SPI_DMA_CH_AUTO);
@@ -206,7 +209,7 @@ static void guiTask(void *pvParameter) {
 
     while (1) {
         // not first loop
-        if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+        if (loop_cnt > 1 && esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER && !holding_updating) {
             ulNotificationCount = ulTaskGenericNotifyTake(0, pdTRUE, pdMS_TO_TICKS(60000));
             // ESP_LOGI(TAG, "ulTaskGenericNotifyTake %ld", ulNotificationCount);
             if (ulNotificationCount > 0) { // may > 1 more data ws send
@@ -216,11 +219,9 @@ static void guiTask(void *pvParameter) {
                 continue_time_out_count += 1;
             }
         }
-
-        ESP_LOGI(TAG, "draw loop: %ld, boot_cnt: %ld ", loop_cnt, boot_cnt);
+        holding_updating = false;
+        ESP_LOGI(TAG, "draw loop: %ld, boot_cnt: %ld  ulNotification: %ld", loop_cnt, boot_cnt, ulNotificationCount);
         current_tick = xTaskGetTickCount();
-
-        draw_page(epd_paint, loop_cnt);
 
         // use partial update mode
         // less continue 60 times partial refresh mode or last full update time less 30min and not first loop
@@ -235,9 +236,11 @@ static void guiTask(void *pvParameter) {
             }
         }
 
+        draw_page(epd_paint, loop_cnt);
+        updating = true;
         panel_ssd1680_draw_bitmap(&panel, 0, 0, LCD_H_RES, LCD_V_RES, epd_paint->image);
         panel_ssd1680_refresh(&panel, use_partial_update_mode);
-
+        updating = false;
         after_draw_page(loop_cnt);
 
         if (!use_partial_update_mode) {
@@ -267,10 +270,15 @@ static void guiTask(void *pvParameter) {
 void request_display_update_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                                     void *event_data) {
     if (BIKE_REQUEST_UPDATE_DISPLAY_EVENT == event_base) {
-        //ESP_LOGI(TAG, "request for update...");
-        int *full_update = (int *) event_data;
-        xTaskGenericNotify(xTaskToNotify, 0, *full_update,
-                           eIncrement, NULL);
+        if (updating) {
+            holding_updating = true;
+            ESP_LOGI(TAG, "still updating hold...");
+        } else {
+            //ESP_LOGI(TAG, "request for update...");
+            int *full_update = (int *) event_data;
+            xTaskGenericNotify(x_update_notify_handl, 0, *full_update,
+                               eIncrement, NULL);
+        }
     }
 }
 
