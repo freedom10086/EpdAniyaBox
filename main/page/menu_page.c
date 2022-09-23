@@ -79,9 +79,9 @@ void menu_page_after_draw(uint32_t loop_cnt) {
     switching_index = 0;
 }
 
-void select_next() {
+void change_select(bool next) {
     switching_index = xTaskGetTickCount();
-    current_index = (current_index + 1) % MENU_ITEM_COUNT;
+    current_index = (current_index + MENU_ITEM_COUNT + (next ? 1 : -1)) % MENU_ITEM_COUNT;
     int full_update = 0;
     post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
 }
@@ -111,13 +111,17 @@ bool menu_page_key_click(key_event_id_t key_event_type) {
             last_key_event_tick = xTaskGetTickCount();
             handle_click_event();
             break;
-        case KEY_2_SHORT_CLICK:
-            last_key_event_tick = xTaskGetTickCount();
-            select_next();
-            break;
         case KEY_1_LONG_CLICK:
             page_manager_close_menu();
             page_manager_request_update(false);
+            break;
+        case KEY_2_SHORT_CLICK:
+            last_key_event_tick = xTaskGetTickCount();
+            change_select(true);
+            break;
+        case KEY_2_LONG_CLICK:
+            last_key_event_tick = xTaskGetTickCount();
+            change_select(false);
             break;
         default:
             return false;

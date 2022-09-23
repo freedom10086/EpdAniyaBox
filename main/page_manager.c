@@ -12,7 +12,7 @@
 #include "page/upgrade_page.h"
 #include "page/menu_page.h"
 #include "page/manual_page.h"
-#include "page/setting_page.h"
+#include "page/image_manage_page.h"
 #include "page/setting_list_page.h"
 #include "battery.h"
 
@@ -67,12 +67,12 @@ static page_inst_t pages[] = {
                 .on_destroy_page = manual_page_on_destroy,
         },
         [6] = {
-                .page_name = "setting",
-                .on_draw_page = setting_page_draw,
-                .key_click_handler = setting_page_key_click,
-                .on_create_page = setting_page_on_create,
-                .on_destroy_page = setting_page_on_destroy,
-                .enter_sleep_handler = setting_page_on_enter_sleep,
+                .page_name = "image-manage",
+                .on_draw_page = image_manage_page_draw,
+                .key_click_handler = image_manage_page_key_click,
+                .on_create_page = image_manage_page_on_create,
+                .on_destroy_page = image_manage_page_on_destroy,
+                .enter_sleep_handler = image_manage_page_on_enter_sleep,
         },
         [7] = {
                 .page_name = "setting-list",

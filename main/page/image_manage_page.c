@@ -6,7 +6,7 @@
 #include <esp_log.h>
 #include "wifi/wifi_ap.h"
 
-#include "setting_page.h"
+#include "image_manage_page.h"
 #include "view/list_view.h"
 
 #include "lcd/display.h"
@@ -30,7 +30,7 @@ void init_list_view(int y) {
     list_view_add_element(list_view, "ddddd");
 }
 
-void setting_page_on_create(void *arg) {
+void image_manage_page_on_create(void *arg) {
     init_list_view(20);
 
     //ESP_ERR_WIFI_NOT_INIT
@@ -50,7 +50,7 @@ void setting_page_on_create(void *arg) {
     }
 }
 
-void setting_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
+void image_manage_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_clear(epd_paint, 0);
     int y = 8;
     epd_paint_draw_string_at(epd_paint, 2, y,
@@ -95,7 +95,7 @@ void setting_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
 
 }
 
-bool setting_page_key_click(key_event_id_t key_event_type) {
+bool image_manage_page_key_click(key_event_id_t key_event_type) {
     if (KEY_1_SHORT_CLICK == key_event_type || KEY_2_SHORT_CLICK == key_event_type) {
         page_manager_close_page();
         page_manager_request_update(false);
@@ -104,7 +104,7 @@ bool setting_page_key_click(key_event_id_t key_event_type) {
     return false;
 }
 
-void setting_page_on_destroy(void *arg) {
+void image_manage_page_on_destroy(void *arg) {
     if (wifi_on) {
         wifi_deinit_softap();
         wifi_on = false;
@@ -113,7 +113,7 @@ void setting_page_on_destroy(void *arg) {
     list_view_deinit(list_view);
 }
 
-int setting_page_on_enter_sleep(void *args) {
+int image_manage_page_on_enter_sleep(void *args) {
     if (!battery_is_curving()) {
         return -1;
     }
