@@ -63,8 +63,8 @@ int scan_result_count = 0;
 scan_result_t scan_rst_list[30];
 
 static struct service_char_map_t service_char_map[] = {
-        {.service_uuid = CYCLING_SPEED_AND_CADENCE_SERVICE_UUID, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
-        {.service_uuid = BATTERY_LEVEL_SERVICE_UUID, .char_uuid = BATTERY_LEVEL_CHARACTERISTIC_UUID, .en_notify = true, .en_read = true},
+        {.service_uuid = ESP_GATT_UUID_CYCLING_SPEED_CADENCE_SVC, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
+        {.service_uuid = ESP_GATT_UUID_BATTERY_SERVICE_SVC, .char_uuid = BATTERY_LEVEL_CHARACTERISTIC_UUID, .en_notify = true, .en_read = true},
         {.service_uuid = ESP_GATT_UUID_HEART_RATE_SVC, .char_uuid = ESP_GATT_HEART_RATE_MEAS, .en_notify = true},
         {.service_uuid = 0x0000,} // stop flag
 };
@@ -94,8 +94,8 @@ static esp_ble_scan_params_t ble_scan_params = {
         .scan_type              = BLE_SCAN_TYPE_ACTIVE,
         .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
         .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
-        .scan_interval          = 0x80, // 0x50 = 100ms
-        .scan_window            = 0x30,
+        .scan_interval          = 0x320, // 800 * 0.625ms = 500ms
+        .scan_window            = 0x50, // 50ms
         .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
 };
 
@@ -124,17 +124,17 @@ static struct gattc_profile_inst gl_profile_tab[PROFILE_NUM] = {
         [PROFILE_A_APP_ID] = {
                 .device_name ="24564-1", // e6 10 d5 83 b7 1c
                 .gattc_cb = gattc_profile_event_handler,
-                .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+                .gattc_if = ESP_GATT_IF_NONE,
         },
         [PROFILE_B_APP_ID] = {
                 .device_name = "XOSS_VOR_S1091",
                 .gattc_cb = gattc_profile_event_handler,
-                .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+                .gattc_if = ESP_GATT_IF_NONE,
         },
         [PROFILE_C_APP_ID] = {
                 .device_name = "HUAWEI Band HR-81C", // e4 62 40 7e b8 1c
                 .gattc_cb = gattc_profile_event_handler,
-                .gattc_if = ESP_GATT_IF_NONE,       /* Not get the gatt_if, so initial is ESP_GATT_IF_NONE */
+                .gattc_if = ESP_GATT_IF_NONE,
         }
 };
 
@@ -440,9 +440,9 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
             //esp_log_buffer_hex(GATTC_TAG, p_data->notify.value, p_data->notify.value_len);
 
             esp_bt_uuid_t uuid = find_service_inst_by_handle(idx, p_data->notify.handle).uuid;
-            if (CYCLING_SPEED_AND_CADENCE_SERVICE_UUID == uuid.uuid.uuid16) {
+            if (ESP_GATT_UUID_CYCLING_SPEED_CADENCE_SVC == uuid.uuid.uuid16) {
                 ble_parse_csc_data(gl_profile_tab[idx].device_name, p_data);
-            } else if (BATTERY_LEVEL_SERVICE_UUID == uuid.uuid.uuid16) {
+            } else if (ESP_GATT_UUID_BATTERY_SERVICE_SVC == uuid.uuid.uuid16) {
                 ESP_LOGI(GATTC_TAG, "notify battery level %d", *p_data->notify.value);
             } else if (ESP_GATT_UUID_HEART_RATE_SVC == uuid.uuid.uuid16) {
                 ble_parse_hrm_data(gl_profile_tab[idx].device_name, p_data);
@@ -480,7 +480,7 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
                     esp_log_buffer_hex(GATTC_TAG, p_data->read.value, p_data->read.value_len);
 
             uuid = find_service_inst_by_handle(idx, p_data->read.handle).uuid;
-            if (BATTERY_LEVEL_SERVICE_UUID == uuid.uuid.uuid16) {
+            if (ESP_GATT_UUID_BATTERY_SERVICE_SVC == uuid.uuid.uuid16) {
                 uint8_t battery_level = *p_data->read.value;
                 ESP_LOGI(GATTC_TAG, "read battery level %d", battery_level);
             }

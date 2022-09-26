@@ -14,10 +14,11 @@
 #include "page/manual_page.h"
 #include "page/image_manage_page.h"
 #include "page/setting_list_page.h"
+#include "page/ble_device_page.h"
 #include "battery.h"
 
 #define TAG "page-manager"
-#define TOTAL_PAGE 8
+#define TOTAL_PAGE 9
 
 static int8_t pre_page_index = -1;
 static int8_t menu_index = -1;
@@ -82,6 +83,15 @@ static page_inst_t pages[] = {
                 .on_destroy_page = setting_list_page_on_destroy,
                 .enter_sleep_handler = setting_list_page_on_enter_sleep,
                 .after_draw_page = setting_list_page_after_draw,
+        },
+        [8] = {
+            .page_name = "ble-device",
+            .on_draw_page = ble_device_page_draw,
+            .key_click_handler = ble_device_page_key_click,
+            .on_create_page = ble_device_page_on_create,
+            .on_destroy_page = ble_device_page_on_destroy,
+            .enter_sleep_handler = ble_device_page_on_enter_sleep,
+            .after_draw_page = ble_device_page_after_draw,
         }
 };
 

@@ -13,7 +13,7 @@
 #define PADDING_X 12
 #define PADDING_Y 4
 #define TEXT_PADDING_Y 11
-#define TOTAL_SETTING_ITEM_COUNT 6
+#define TOTAL_SETTING_ITEM_COUNT 7
 
 static bool switching_index = false;
 static int16_t current_index = 0;
@@ -90,7 +90,17 @@ void setting_list_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         y += SETTING_ITEM_HEIGHT;
     }
     if (offset_item < 6) {
-        // 5. reboot
+        // 5. ble
+        epd_paint_draw_bitmap(epd_paint, 11, y + PADDING_Y, 28, 32,
+                              (uint8_t *) ic_ble_bmp_start,
+                              ic_ble_bmp_end - ic_ble_bmp_start, 1);
+        uint16_t ble_device[] = {0xB6C0, 0xC0D1, 0xE8C9, 0xB8B1, 0x00};
+        epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, y + TEXT_PADDING_Y,
+                                 (char *) ble_device, &Font_HZK16, 1);
+        y += SETTING_ITEM_HEIGHT;
+    }
+    if (offset_item < 7) {
+        // 6. reboot
         epd_paint_draw_bitmap(epd_paint, 9, y + PADDING_Y, 32, 32,
                               (uint8_t *) ic_reboot_bmp_start,
                               ic_reboot_bmp_end - ic_reboot_bmp_start, 1);
@@ -120,9 +130,9 @@ static void change_select(bool next) {
     int16_t select_end_y = select_start_y + SETTING_ITEM_HEIGHT;
 
     if (select_start_y < 0) {
-        offset_item -= 1;
+        offset_item -= (0 - select_start_y + SETTING_ITEM_HEIGHT - 1) / SETTING_ITEM_HEIGHT;
     } else if (select_end_y > LCD_V_RES) {
-        offset_item += 1;
+        offset_item += (select_end_y - LCD_V_RES + SETTING_ITEM_HEIGHT - 1) / SETTING_ITEM_HEIGHT;
     }
 
     ESP_LOGI(TAG, "current index:%d, current offset:%d", current_index, offset_item);
@@ -143,6 +153,8 @@ static void handle_click_event() {
     } else if (current_index == 4) {
         page_manager_switch_page("upgrade");
     } else if (current_index == 5) {
+        page_manager_switch_page("ble-device");
+    } else if (current_index == 6) {
         esp_restart();
     }
     page_manager_request_update(false);
