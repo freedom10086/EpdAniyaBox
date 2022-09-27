@@ -110,7 +110,6 @@ struct gattc_profile_inst {
     char *device_name;
     esp_gattc_cb_t gattc_cb;
     uint16_t gattc_if;
-    uint16_t app_id;
     uint16_t conn_id;
     esp_bd_addr_t remote_bda;
     bool connect;
@@ -724,32 +723,32 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
 }
 
 esp_err_t ble_device_init(const ble_device_config_t *config) {
+    if (esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_ENABLED) {
+        ESP_LOGW(GATTC_TAG, "ble already init");
+        return ESP_OK;
+    }
+
     ESP_ERROR_CHECK(common_init_nvs());
-
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+    esp_err_t ret;
 
+    // init bt controller
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
-    esp_err_t ret = esp_bt_controller_init(&bt_cfg);
-    if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s initialize controller failed: %s\n", __func__, esp_err_to_name(ret));
-        return ESP_FAIL;
-    }
-
+    ret = esp_bt_controller_init(&bt_cfg);
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
-    if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
+    if (esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED) {
+        ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s %d %s\n", __func__, "invalid state", esp_bt_controller_get_status(),
+                 esp_err_to_name(ret));
         return ESP_FAIL;
     }
 
+    // init btdroid
     ret = esp_bluedroid_init();
-    if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
-        return ESP_FAIL;
-    }
-
     ret = esp_bluedroid_enable();
-    if (ret) {
-        ESP_LOGE(GATTC_TAG, "%s enable bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
+
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        ESP_LOGE(GATTC_TAG, "%s init bluedroid failed: %s %d %s\n", __func__, "invalid state", esp_bluedroid_get_status(),
+                 esp_err_to_name(ret));
         return ESP_FAIL;
     }
 
@@ -793,5 +792,16 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
 }
 
 esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
+    for (int i = 0; i < PROFILE_NUM; ++i) {
+        esp_ble_gattc_app_unregister(gl_profile_tab[i].gattc_if);
+        esp_ble_gattc_close(gl_profile_tab[i].gattc_if, gl_profile_tab[i].conn_id);
+    }
+
+    esp_bluedroid_disable();
+    esp_bluedroid_deinit();
+
+    esp_bt_controller_disable();
+    esp_bt_controller_deinit();
+
     return ESP_OK;
 }

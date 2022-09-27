@@ -4,8 +4,8 @@
 
 #include "lcd/epd_lcd_ssd1680.h"
 #include "bike_common.h"
-#include "static/static.h"
 #include "page_manager.h"
+#include "ble/ble_device.h"
 
 #define TAG "ble_device_page"
 
@@ -30,6 +30,9 @@ static item_data_t *datas;
 
 void ble_device_page_on_create(void *arg) {
     ESP_LOGI(TAG, "on_create");
+
+    ble_device_config_t config;
+    ble_device_init(&config);
 }
 
 void ble_device_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
@@ -91,19 +94,9 @@ static void change_select(bool next) {
 
 static void handle_click_event() {
     if (current_index == 0) {
-        page_manager_close_page();
-    } else if (current_index == 1) {
-        page_manager_switch_page("info");
-    } else if (current_index == 2) {
-        page_manager_switch_page("manual");
-    } else if (current_index == 3) {
-        page_manager_switch_page("image-manage");
-    } else if (current_index == 4) {
-        page_manager_switch_page("upgrade");
-    } else if (current_index == 5) {
-        page_manager_switch_page("ble-device");
-    } else if (current_index == 6) {
-        esp_restart();
+        // refresh click
+    } else {
+        // bt item click
     }
     page_manager_request_update(false);
 }
