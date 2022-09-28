@@ -1,5 +1,7 @@
 #include "ble_device_page.h"
 
+#ifdef CONFIG_ENABLE_BLE_DEVICES
+
 #include "esp_log.h"
 
 #include "lcd/epd_lcd_ssd1680.h"
@@ -31,8 +33,8 @@ static item_data_t *datas;
 void ble_device_page_on_create(void *arg) {
     ESP_LOGI(TAG, "on_create");
 
-    ble_device_config_t config;
-    ble_device_init(&config);
+    //ble_device_config_t config;
+    ble_device_init(NULL);
 }
 
 void ble_device_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
@@ -129,3 +131,5 @@ void ble_device_page_on_destroy(void *arg) {
 int ble_device_page_on_enter_sleep(void *args) {
     return -1;
 }
+
+#endif

@@ -5,13 +5,11 @@ set(srcs "lcd/font8.c" "lcd/font12.c" "lcd/font16.c" "lcd/font20.c" "lcd/font24.
         "battery.c" "key.c"
         "wifi/wifi_ap.c" "wifi/my_http_server.c" "wifi/my_http_file_server.c" "wifi/my_mount.c" "wifi/my_wifi_ota.c"
         "ble/ble_csc.c" "ble/ble_hrm.c" "ble/ble_device.c"
-        "pressure_common.c" "spl06.c"
-        "sht31.c"
-        "lcd/epd_lcd_ssd1680.c" "page/menu_page.c" "page/test_page.c" "page/info_page.c" "lcd/display.c" "page/image_page.c" "page/temperature_page.c" "page/upgrade_page.c"
-        "page/manual_page.c" "page/image_manage_page.c" "page/ble_device_page.c"
-        "page/setting_list_page.c"
-        "page_manager.c"
+        "pressure_common.c" "spl06.c" "sht31.c"
         "view/list_view.c" "view/digi_view.c" "view/battery_view.c"
+        "lcd/epd_lcd_ssd1680.c" "page/menu_page.c" "page/test_page.c" "page/info_page.c" "lcd/display.c" "page/image_page.c" "page/temperature_page.c" "page/upgrade_page.c"
+        "page/manual_page.c" "page/image_manage_page.c" "page/ble_device_page.c" "page/setting_list_page.c"
+        "page_manager.c"
         "main.c")
 
 idf_component_register(SRCS ${srcs}

@@ -86,12 +86,14 @@ static page_inst_t pages[] = {
         },
         [8] = {
             .page_name = "ble-device",
+#ifdef CONFIG_ENABLE_BLE_DEVICES
             .on_draw_page = ble_device_page_draw,
             .key_click_handler = ble_device_page_key_click,
             .on_create_page = ble_device_page_on_create,
             .on_destroy_page = ble_device_page_on_destroy,
             .enter_sleep_handler = ble_device_page_on_enter_sleep,
             .after_draw_page = ble_device_page_after_draw,
+#endif
         }
 };
 

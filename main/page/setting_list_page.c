@@ -153,7 +153,9 @@ static void handle_click_event() {
     } else if (current_index == 4) {
         page_manager_switch_page("upgrade");
     } else if (current_index == 5) {
+#ifdef CONFIG_ENABLE_BLE_DEVICES
         page_manager_switch_page("ble-device");
+#endif
     } else if (current_index == 6) {
         esp_restart();
     }

@@ -376,6 +376,7 @@ CONFIG_DISP_PIN_BUSY=8
 #
 # config ble device
 #
+# CONFIG_ENABLE_BLE_DEVICES is not set
 # end of BLE Device Config
 
 #

@@ -81,6 +81,8 @@ menu "My Project Config"
     menu "BLE Device Config"
         comment "config ble device"
 
+        config ENABLE_BLE_DEVICES
+            bool "enable ble devices"
     endmenu
 
     menu "WIFI Config"

@@ -1,9 +1,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
-#include <stdio.h>
-#include "nvs.h"
-#include "nvs_flash.h"
 
 #include "esp_bt.h"
 #include "esp_gap_ble_api.h"
