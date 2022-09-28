@@ -147,6 +147,7 @@ static void guiTask(void *pvParameter) {
         page_manager_init("image");
     } else {
         page_manager_init("temperature");
+        // page_manager_init("ble-device");
     }
 
     x_update_notify_handl = xTaskGetCurrentTaskHandle();
