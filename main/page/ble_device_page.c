@@ -122,7 +122,7 @@ static void change_select(bool next) {
     ESP_LOGI(TAG, "current index:%d, current offset:%d", current_index, offset_item);
 
     int full_update = 0;
-    post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
+    common_post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
 }
 
 static void handle_click_event() {

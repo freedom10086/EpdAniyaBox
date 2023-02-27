@@ -38,6 +38,8 @@ static bool temperature_valid = false;
 static float humility;
 static bool humility_valid = false;
 
+extern esp_event_loop_handle_t event_loop_handle;
+
 static void temp_sensor_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
     sht31_data_t *data = NULL;
     switch (event_id) {

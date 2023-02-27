@@ -257,14 +257,14 @@ esp_err_t ota_post_handler(httpd_req_t *req) {
                     return ESP_FAIL;
                 }
                 ESP_LOGI(TAG, "esp_ota_begin succeeded");
-                post_event(BIKE_OTA_EVENT, OTA_START);
+                common_post_event(BIKE_OTA_EVENT, OTA_START);
             } else {
                 ESP_LOGE(TAG, "received package is not fit len");
                 esp_ota_abort(update_handle);
 
                 free(ota_write_data);
                 httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "received package is not fit len");
-                post_event(BIKE_OTA_EVENT, OTA_FAILED);
+                common_post_event(BIKE_OTA_EVENT, OTA_FAILED);
                 return ESP_FAIL;
             }
         }
@@ -275,13 +275,13 @@ esp_err_t ota_post_handler(httpd_req_t *req) {
             free(ota_write_data);
             ESP_LOGE(TAG, "esp_ota_write failed (%s)", esp_err_to_name(err));
             httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "esp_ota_write failed..");
-            post_event(BIKE_OTA_EVENT, OTA_FAILED);
+            common_post_event(BIKE_OTA_EVENT, OTA_FAILED);
             return ESP_FAIL;
         }
         binary_file_length += data_read;
         ESP_LOGD(TAG, "Written image length %d", binary_file_length);
         upgrade_progress = (float) binary_file_length * 1.0f / req->content_len;
-        post_event_data(BIKE_OTA_EVENT, OTA_PROGRESS, &upgrade_progress, sizeof(float *));
+        common_post_event_data(BIKE_OTA_EVENT, OTA_PROGRESS, &upgrade_progress, sizeof(float *));
     }
 
     free(ota_write_data);
@@ -296,7 +296,7 @@ esp_err_t ota_post_handler(httpd_req_t *req) {
         }
 
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "esp_ota_end failed..");
-        post_event(BIKE_OTA_EVENT, OTA_FAILED);
+        common_post_event(BIKE_OTA_EVENT, OTA_FAILED);
         return ESP_FAIL;
     }
 
@@ -304,12 +304,12 @@ esp_err_t ota_post_handler(httpd_req_t *req) {
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_ota_set_boot_partition failed (%s)!", esp_err_to_name(err));
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "esp_ota_set_boot_partition failed..");
-        post_event(BIKE_OTA_EVENT, OTA_FAILED);
+        common_post_event(BIKE_OTA_EVENT, OTA_FAILED);
         return ESP_FAIL;
     }
 
     ESP_LOGI(TAG, "Ota success Prepare to restart system!");
-    post_event(BIKE_OTA_EVENT, OTA_SUCCESS);
+    common_post_event(BIKE_OTA_EVENT, OTA_SUCCESS);
 
     httpd_resp_set_type(req, "text/html");
 #ifdef CONFIG_EXAMPLE_HTTPD_CONN_CLOSE_HEADER

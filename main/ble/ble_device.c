@@ -523,7 +523,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                 break;
             }
             ESP_LOGI(GATTC_TAG, "scan start success");
-            post_event(BLE_DEVICE_EVENT, BT_START_SCAN);
+            common_post_event(BLE_DEVICE_EVENT, BT_START_SCAN);
             break;
         case ESP_GAP_BLE_SCAN_RESULT_EVT: {
             // 搜索到新设备
@@ -633,13 +633,13 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                             }
                         }
                     }
-                    post_event(BLE_DEVICE_EVENT, BT_NEW_SCAN_RESULT);
+                    common_post_event(BLE_DEVICE_EVENT, BT_NEW_SCAN_RESULT);
                     break;
                 case ESP_GAP_SEARCH_INQ_CMPL_EVT:
                     scanning = false;
                     // 搜索duration时间到了
                     ESP_LOGI(GATTC_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT scan timeout");
-                    post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
+                    common_post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
                     for (int i = 0; i < PROFILE_NUM; ++i) {
                         if (!gl_profile_tab[i].connect) {
                             uint32_t duration = 15;
@@ -668,7 +668,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             }
             scanning = false;
             ESP_LOGI(GATTC_TAG, "ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT stop scan successfully");
-            post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
+            common_post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
             break;
 
         case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
@@ -792,7 +792,7 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
         ESP_LOGE(GATTC_TAG, "%s gattc app c register failed, error code = %x\n", __func__, ret);
     }
 
-    post_event(BLE_DEVICE_EVENT, BT_INIT);
+    common_post_event(BLE_DEVICE_EVENT, BT_INIT);
 
     esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
     if (local_mtu_ret) {
