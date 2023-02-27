@@ -29,7 +29,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define TAG "DISPLAY"
+#define TAG "display"
 
 #define TFT_SPI_HOST SPI2_HOST
 #define DISP_SPI_MISO  CONFIG_DISP_SPI_MISO
@@ -149,6 +149,7 @@ static void guiTask(void *pvParameter) {
         page_manager_init("image");
     } else {
         page_manager_init("temperature");
+        // page_manager_init("ble-device");
     }
 
     x_update_notify_handl = xTaskGetCurrentTaskHandle();

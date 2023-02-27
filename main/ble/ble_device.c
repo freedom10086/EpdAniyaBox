@@ -23,6 +23,7 @@
 #define PROFILE_C_APP_ID 2
 
 #define INVALID_HANDLE   0
+#define MAX_SCAN_RESULT_COUNT 30
 
 ESP_EVENT_DEFINE_BASE(BLE_DEVICE_EVENT);
 
@@ -48,16 +49,8 @@ struct service_char_map_t {
     bool en_notify;
 };
 
-typedef struct {
-    uint8_t *dev_name;
-    int dev_name_len;
-    esp_bd_addr_t bda;
-    esp_ble_addr_type_t ble_addr_type;
-    int rssi;
-} scan_result_t;
-
-int scan_result_count = 0;
-scan_result_t scan_rst_list[30];
+static uint8_t scan_result_count = 0;
+static scan_result_t scan_rst_list[MAX_SCAN_RESULT_COUNT];
 
 static struct service_char_map_t service_char_map[] = {
         {.service_uuid = ESP_GATT_UUID_CYCLING_SPEED_CADENCE_SVC, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
@@ -523,13 +516,14 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
         }
         case ESP_GAP_BLE_SCAN_START_COMPLETE_EVT:
             scanning = true;
+            scan_result_count = 0; // clear scan result
             //scan start complete event to indicate scan start successfully or failed
             if (param->scan_start_cmpl.status != ESP_BT_STATUS_SUCCESS) {
                 ESP_LOGE(GATTC_TAG, "scan start failed, error status = %x", param->scan_start_cmpl.status);
                 break;
             }
             ESP_LOGI(GATTC_TAG, "scan start success");
-
+            common_post_event(BLE_DEVICE_EVENT, BT_START_SCAN);
             break;
         case ESP_GAP_BLE_SCAN_RESULT_EVT: {
             // 搜索到新设备
@@ -537,31 +531,41 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             switch (scan_result->scan_rst.search_evt) {
                 case ESP_GAP_SEARCH_INQ_RES_EVT:  // Inquiry result for a peer device.
                     //case ESP_GAP_SEARCH_DISC_BLE_RES_EVT:  // Discovery result for BLE GATT based service on a peer device.
-                    //esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, 6);
-                    //ESP_LOGI(GATTC_TAG, "searched Adv Data Len %d, Scan Response Len %d", scan_result->scan_rst.adv_data_len, scan_result->scan_rst.scan_rsp_len);
-                    adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
-                                                        ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+                    adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_CMPL,
+                                                        &adv_name_len);
                     if (adv_name == NULL) {
+                        adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv, ESP_BLE_AD_TYPE_NAME_SHORT,
+                                                            &adv_name_len);
+                    }
+
+                    if (adv_name == NULL) {
+                        // no device name
                         break;
                     }
 
                     // 保存搜索结果
                     int index = scan_result_count;
                     for (int i = 0; i < scan_result_count; ++i) {
-                        if (memcpy(scan_rst_list[scan_result_count].bda, scan_result->scan_rst.bda, 6) == 0) {
+                        if (memcmp(scan_rst_list[i].bda, scan_result->scan_rst.bda, sizeof(esp_bd_addr_t)) == 0) {
                             // exist
                             index = i;
+                            break;
                         }
                     }
 
                     bool new_scan_rst = index == scan_result_count;
-                    scan_rst_list[index].dev_name = adv_name;
+                    memcpy(scan_rst_list[index].dev_name, adv_name, min(adv_name_len, MAX_BLE_DEVICE_NAME_LEN - 1));
                     scan_rst_list[index].dev_name_len = adv_name_len;
+                    scan_rst_list[index].dev_name[adv_name_len] = '\0';
                     memcpy(scan_rst_list[index].bda, scan_result->scan_rst.bda, sizeof(esp_bd_addr_t));
                     scan_rst_list[index].ble_addr_type = scan_result->scan_rst.ble_addr_type;
                     scan_rst_list[index].rssi = scan_result->scan_rst.rssi;
 
                     if (new_scan_rst) {
+                        if (scan_result_count == MAX_SCAN_RESULT_COUNT) {
+                            ESP_LOGW(GATTC_TAG, "scan result arrive max count %d", MAX_SCAN_RESULT_COUNT);
+                            break;
+                        }
                         scan_result_count++;
                     }
 
@@ -569,8 +573,10 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                         break;
                     }
 
-                    ESP_LOGI(GATTC_TAG, "searched Device:");
+                    ESP_LOGI(GATTC_TAG, "Searched New Device:");
                             esp_log_buffer_char(GATTC_TAG, adv_name, adv_name_len);
+                    ESP_LOGI(GATTC_TAG, "Device Bda:");
+                            esp_log_buffer_hex(GATTC_TAG, scan_result->scan_rst.bda, sizeof(esp_bd_addr_t));
                     ESP_LOGI(GATTC_TAG, "RSSI of packet:%d dbm, total find device:%d", scan_result->scan_rst.rssi,
                              scan_result_count);
 
@@ -627,17 +633,19 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
                             }
                         }
                     }
+                    common_post_event(BLE_DEVICE_EVENT, BT_NEW_SCAN_RESULT);
                     break;
                 case ESP_GAP_SEARCH_INQ_CMPL_EVT:
                     scanning = false;
                     // 搜索duration时间到了
-                    ESP_LOGI(GATTC_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT");
+                    ESP_LOGI(GATTC_TAG, "ESP_GAP_SEARCH_INQ_CMPL_EVT scan timeout");
+                    common_post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
                     for (int i = 0; i < PROFILE_NUM; ++i) {
                         if (!gl_profile_tab[i].connect) {
                             uint32_t duration = 15;
 
                             // 重新搜索
-                            esp_ble_gap_set_scan_params(&ble_scan_params);
+                            // esp_ble_gap_set_scan_params(&ble_scan_params);
                             // esp_ble_gap_start_scanning(duration);
                             break;
                         }
@@ -660,6 +668,7 @@ static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *par
             }
             scanning = false;
             ESP_LOGI(GATTC_TAG, "ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT stop scan successfully");
+            common_post_event(BLE_DEVICE_EVENT, BT_STOP_SCAN);
             break;
 
         case ESP_GAP_BLE_ADV_STOP_COMPLETE_EVT:
@@ -734,7 +743,8 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
     ret = esp_bt_controller_init(&bt_cfg);
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (esp_bt_controller_get_status() != ESP_BT_CONTROLLER_STATUS_ENABLED) {
-        ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s %d %s\n", __func__, "invalid state", esp_bt_controller_get_status(),
+        ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s %d %s\n", __func__, "invalid state",
+                 esp_bt_controller_get_status(),
                  esp_err_to_name(ret));
         return ESP_FAIL;
     }
@@ -744,7 +754,8 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
     ret = esp_bluedroid_enable();
 
     if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
-        ESP_LOGE(GATTC_TAG, "%s init bluedroid failed: %s %d %s\n", __func__, "invalid state", esp_bluedroid_get_status(),
+        ESP_LOGE(GATTC_TAG, "%s init bluedroid failed: %s %d %s\n", __func__, "invalid state",
+                 esp_bluedroid_get_status(),
                  esp_err_to_name(ret));
         return ESP_FAIL;
     }
@@ -781,11 +792,28 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
         ESP_LOGE(GATTC_TAG, "%s gattc app c register failed, error code = %x\n", __func__, ret);
     }
 
+    common_post_event(BLE_DEVICE_EVENT, BT_INIT);
+
     esp_err_t local_mtu_ret = esp_ble_gatt_set_local_mtu(500);
     if (local_mtu_ret) {
         ESP_LOGE(GATTC_TAG, "set local  MTU failed, error code = %x", local_mtu_ret);
     }
     return ESP_OK;
+}
+
+esp_err_t ble_device_start_scan(uint8_t duration) {
+    if (esp_bluedroid_get_status() != ESP_BLUEDROID_STATUS_ENABLED) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    if (scanning) {
+        return ESP_OK;
+    }
+    return esp_ble_gap_start_scanning(duration);
+}
+
+scan_result_t *ble_device_get_scan_rst(uint8_t *result_count) {
+    *result_count = scan_result_count;
+    return scan_rst_list;
 }
 
 esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {

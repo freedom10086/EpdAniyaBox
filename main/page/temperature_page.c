@@ -5,6 +5,8 @@
 #include <esp_log.h>
 #include "esp_wifi.h"
 #include <esp_wifi_types.h>
+#include <esp_bt_main.h>
+#include "esp_bt.h"
 
 #include "bike_common.h"
 #include "lcd/epdpaint.h"
@@ -115,19 +117,31 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     digi_view_deinit(hum_label);
 
     // battery
-    battery_view_t *battery_view = battery_view_create(4, 183, 26, 16);
+    uint8_t icon_x = 4;
+    battery_view_t *battery_view = battery_view_create(icon_x, 183, 26, 16);
     battery_view_draw(battery_view, epd_paint, battery_get_level(), loop_cnt);
     battery_view_deinit(battery_view);
+    icon_x += 30;
 
     wifi_mode_t wifi_mode;
     esp_err_t err = esp_wifi_get_mode(&wifi_mode);
-    ESP_LOGI(TAG, "current wifi mdoe: %d, %d %s", wifi_mode, err, esp_err_to_name(err));
+    //ESP_LOGI(TAG, "current wifi mdoe: %d, %d %s", wifi_mode, err, esp_err_to_name(err));
     if (ESP_OK == err && wifi_mode != WIFI_MODE_NULL) {
         // wifi icon
-        epd_paint_draw_bitmap(epd_paint, 34, 183, 22, 16,
+        epd_paint_draw_bitmap(epd_paint, icon_x, 183, 22, 16,
                               (uint8_t *) icon_wifi_bmp_start,
                               icon_wifi_bmp_end - icon_wifi_bmp_start, 1);
+        icon_x += 26;
     }
+#ifdef CONFIG_ENABLE_BLE_DEVICES
+    if (esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_ENABLED) {
+        // ble icon
+        epd_paint_draw_bitmap(epd_paint, icon_x, 183, 11, 16,
+                              (uint8_t *) icon_ble_bmp_start,
+                              icon_ble_bmp_end - icon_ble_bmp_start, 1);
+        icon_x += 15;
+    }
+#endif
 }
 
 bool temperature_page_key_click_handle(key_event_id_t key_event_type) {

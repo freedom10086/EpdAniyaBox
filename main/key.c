@@ -46,9 +46,9 @@ static void timer_callback(void *arg) {
             ignore_long_pressed[index] = true;
             ESP_LOGI(TAG, "key %d long press detect by timer", index == 0 ? KEY_1_NUM : KEY_2_NUM);
             common_post_event_data(BIKE_KEY_EVENT,
-                              index == 0 ? KEY_1_LONG_CLICK : KEY_2_LONG_CLICK,
-                              &time_diff_ms,
-                              sizeof(time_diff_ms));
+                                   index == 0 ? KEY_1_LONG_CLICK : KEY_2_LONG_CLICK,
+                                   &time_diff_ms,
+                                   sizeof(time_diff_ms));
         }
     }
 }
