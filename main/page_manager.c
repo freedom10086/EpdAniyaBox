@@ -250,5 +250,5 @@ int page_manager_enter_sleep(uint32_t loop_cnt) {
 }
 
 void page_manager_request_update(uint32_t full_refresh) {
-    post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_refresh, sizeof(full_refresh));
+    common_post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_refresh, sizeof(full_refresh));
 }

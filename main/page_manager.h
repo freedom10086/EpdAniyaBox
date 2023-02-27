@@ -52,7 +52,7 @@ void page_manager_show_menu(char *name);
 
 void page_manager_close_menu();
 
-// -1 stop sleep, 0 never wake up by timer
+// return sleep ts, -1 stop sleep, 0 never wake up by timer
 int page_manager_enter_sleep(uint32_t loop_cnt);
 
 void page_manager_request_update(uint32_t full_refresh);

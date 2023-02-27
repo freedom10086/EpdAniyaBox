@@ -190,7 +190,7 @@ static void sht31_task_entry(void *arg) {
         failed_cnt++;
         if (failed_cnt >= 3) {
             ESP_LOGE(TAG, "read sht31 status failed for 3 times...");
-            post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_INIT_FAILED);
+            common_post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_INIT_FAILED);
             vTaskDelete(NULL);
         }
         vTaskDelay(pdMS_TO_TICKS(3));
@@ -205,9 +205,9 @@ static void sht31_task_entry(void *arg) {
     while (1) {
         if (sht31_read_temp_hum()) {
             //ESP_LOGI(TAG, "temp %f, hum:%f", sht31.data.temp, sht31.data.hum);
-            post_event_data(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_UPDATE, &sht31.data, sizeof(sht31_data_t));
+            common_post_event_data(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_UPDATE, &sht31.data, sizeof(sht31_data_t));
         } else {
-            post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_READ_FAILED);
+            common_post_event(BIKE_TEMP_HUM_SENSOR_EVENT, SHT31_SENSOR_READ_FAILED);
         }
         vTaskDelay(pdMS_TO_TICKS(30000));
     }

@@ -29,7 +29,7 @@
 /*********************
  *      DEFINES
  *********************/
-#define TAG "DISPLAY"
+#define TAG "display"
 
 #define TFT_SPI_HOST SPI2_HOST
 #define DISP_SPI_MISO  CONFIG_DISP_SPI_MISO
@@ -53,6 +53,8 @@ static TaskHandle_t x_update_notify_handl = NULL;
 static uint32_t boot_cnt = 0;
 bool updating = false;
 bool holding_updating = false;
+
+extern esp_event_loop_handle_t event_loop_handle;
 
 bool spi_driver_init(int host,
                      int miso_pin, int mosi_pin, int sclk_pin,
@@ -147,6 +149,7 @@ static void guiTask(void *pvParameter) {
         page_manager_init("image");
     } else {
         page_manager_init("temperature");
+        // page_manager_init("ble-device");
     }
 
     x_update_notify_handl = xTaskGetCurrentTaskHandle();
