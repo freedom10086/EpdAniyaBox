@@ -83,7 +83,7 @@ void change_select(bool next) {
     switching_index = xTaskGetTickCount();
     current_index = (current_index + MENU_ITEM_COUNT + (next ? 1 : -1)) % MENU_ITEM_COUNT;
     int full_update = 0;
-    post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
+    common_post_event_data(BIKE_REQUEST_UPDATE_DISPLAY_EVENT, 0, &full_update, sizeof(full_update));
 }
 
 void handle_click_event() {

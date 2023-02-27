@@ -3,11 +3,11 @@ menu "My Project Config"
     menu "LCD Config"
         comment "config spi display stuff."
         choice SPI_DISPLAY_TYPE
-            prompt "LCD Display Type: "
+            prompt "LCD Display Type:"
             default SPI_DISPLAY_SSD1680_1IN54
             help
                   Select the display driver type.
-            config SPI_DISPLAY_SSD1680_1IN54
+            config SPI_DISPLAY_SSD1680_1IN54te
                 bool "SPI_DISPLAY_SSD1680_1IN54"
             config SPI_DISPLAY_SSD1680_1IN54_V1
                 bool "SPI_DISPLAY_SSD1680_1IN54_V1"

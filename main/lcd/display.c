@@ -54,6 +54,8 @@ static uint32_t boot_cnt = 0;
 bool updating = false;
 bool holding_updating = false;
 
+extern esp_event_loop_handle_t event_loop_handle;
+
 bool spi_driver_init(int host,
                      int miso_pin, int mosi_pin, int sclk_pin,
                      int max_transfer_sz,

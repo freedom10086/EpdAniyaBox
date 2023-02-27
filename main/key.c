@@ -45,12 +45,10 @@ static void timer_callback(void *arg) {
             // long pressed
             ignore_long_pressed[index] = true;
             ESP_LOGI(TAG, "key %d long press detect by timer", index == 0 ? KEY_1_NUM : KEY_2_NUM);
-            esp_event_post_to(event_loop_handle,
-                              BIKE_KEY_EVENT,
+            common_post_event_data(BIKE_KEY_EVENT,
                               index == 0 ? KEY_1_LONG_CLICK : KEY_2_LONG_CLICK,
                               &time_diff_ms,
-                              sizeof(time_diff_ms),
-                              100 / portTICK_PERIOD_MS);
+                              sizeof(time_diff_ms));
         }
     }
 }
@@ -100,12 +98,10 @@ static void key_task_entry(void *arg) {
                         ESP_LOGI(TAG, "key %d long press, ignore", clicked_gpio);
                     } else {
                         ESP_LOGI(TAG, "key %d long press", clicked_gpio);
-                        esp_event_post_to(event_loop_handle,
-                                          BIKE_KEY_EVENT,
+                        common_post_event_data(BIKE_KEY_EVENT,
                                           index == 0 ? KEY_1_LONG_CLICK : KEY_2_LONG_CLICK,
                                           &time_diff_ms,
-                                          sizeof(time_diff_ms),
-                                          100 / portTICK_PERIOD_MS);
+                                          sizeof(time_diff_ms));
                     }
                 } else if (pdTICKS_TO_MS(key_up_tick_diff) > KEY_CLICK_MIN_GAP) {
                     if (esp_timer_is_active(timers[index])) {
@@ -113,12 +109,10 @@ static void key_task_entry(void *arg) {
                     }
 
                     ESP_LOGI(TAG, "key %d short press", clicked_gpio);
-                    esp_event_post_to(event_loop_handle,
-                                      BIKE_KEY_EVENT,
+                    common_post_event_data(BIKE_KEY_EVENT,
                                       index == 0 ? KEY_1_SHORT_CLICK : KEY_2_SHORT_CLICK,
                                       &time_diff_ms,
-                                      sizeof(time_diff_ms),
-                                      100 / portTICK_PERIOD_MS);
+                                      sizeof(time_diff_ms));
                 } else {
                     ESP_LOGW(TAG, "key up to quickly gpio:%d, time diff:%ldms", clicked_gpio,
                              pdTICKS_TO_MS(key_up_tick_diff));

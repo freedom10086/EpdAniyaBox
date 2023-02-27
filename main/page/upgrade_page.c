@@ -26,6 +26,8 @@ float ota_progress = 0;
 
 enum upgrade_state_t state = INIT;
 
+extern esp_event_loop_handle_t event_loop_handle;
+
 static void ota_event_handler(void *event_handler_arg, esp_event_base_t event_base, int32_t event_id,
                               void *event_data) {
     switch (event_id) {

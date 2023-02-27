@@ -25,6 +25,8 @@ battery_view_t *battery_view_create(int x, int y, int width, int height) {
 }
 
 void battery_view_draw(battery_view_t *battery_view, epd_paint_t *epd_paint, int8_t level, uint32_t loop_cnt) {
+    ESP_LOGE(TAG, "battery_view_draw %d", level);
+
     uint8_t head_w = max(1, battery_view->height / 8);
     uint8_t head_h = max(2, battery_view->height / 4);
 
