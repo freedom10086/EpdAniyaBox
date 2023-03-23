@@ -37,7 +37,7 @@ SPI LCD
 
 外壳  
 外壳3d打印在box目录, 分别适用[3mm和6mm电池](https://item.taobao.com/item.htm?spm=a1z09.2.0.0.38452e8dEe6RPA&id=602110158806&_u=nvubg2g8ec5)   
-3mm电池 30 * 35 * 30 使用3mm外壳 600mah  
+3mm电池 30 * 35 * 30 使用3mm外壳 350mah  
 6mm电池 30 * 35 * 60 使用6mm外壳 700mah
 
 原理图    
