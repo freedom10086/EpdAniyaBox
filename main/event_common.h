@@ -29,20 +29,4 @@ typedef struct {
 } ble_csc_data_t;
 
 
-/**
- * spl06
- */
-typedef enum {
-    SPL06_SENSOR_UPDATE,
-} spl06_event_id_t;
-
-typedef struct {
-    float temp;
-
-    float pressure;
-
-    float altitude;
-
-} spl06_data_t;
-
 #endif

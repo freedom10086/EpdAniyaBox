@@ -88,7 +88,7 @@ void list_view_add_element(list_view_t *list_view, char *text) {
 }
 
 struct list_view_element_t *list_view_get_element(list_view_t *list_view, uint8_t index) {
-    assert(index >= 0 && index < list_view->element_count);
+    assert(index < list_view->element_count);
     struct list_view_element_t *pre = NULL;
     struct list_view_element_t *item = list_view->head;
     for (; index > 0; index--) {
@@ -103,7 +103,7 @@ void list_view_update_item(list_view_t *list_view, uint8_t index, char *newText)
 }
 
 void list_view_remove_element(list_view_t *list_view, uint8_t index) {
-    assert(index >= 0 && index < list_view->element_count);
+    assert(index < list_view->element_count);
     struct list_view_element_t *pre = NULL;
     struct list_view_element_t *item = list_view->head;
     for (; index > 0; index--) {

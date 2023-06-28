@@ -1,5 +1,4 @@
 #include "esp_log.h"
-#include "esp_gattc_api.h"
 
 #include "ble_csc.h"
 
@@ -108,30 +107,30 @@ void on_crank_measurement_received(uint16_t crank_revolutions, uint16_t last_cra
 }
 
 // 解析csc数据
-void ble_parse_csc_data(char *device_name, esp_ble_gattc_cb_param_t *p_data) {
-    uint8_t flag = *p_data->notify.value;
+void ble_parse_csc_data(char *device_name, uint8_t *value) {
+    uint8_t flag = *value;
     bool has_wheel_revolutions = flag & 0x01;
     bool has_crank_revolutions = flag & 0x02;
 
-    p_data->notify.value += 1;
+    value += 1;
     if (has_wheel_revolutions) {
-        uint32_t wheel_revolutions = *((uint32_t *) p_data->notify.value);
-        p_data->notify.value += 4;
+        uint32_t wheel_revolutions = *((uint32_t *) value);
+        value += 4;
 
         // 1/1024s
-        uint16_t last_wheel_revolutions_time = *((uint16_t *) p_data->notify.value);
-        p_data->notify.value += 2;
+        uint16_t last_wheel_revolutions_time = *((uint16_t *) value);
+        value += 2;
 
         ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %ld, last time %d", device_name,  wheel_revolutions, last_wheel_revolutions_time);
         on_wheel_measurement_received(wheel_revolutions, last_wheel_revolutions_time);
     }
 
     if (has_crank_revolutions) {
-        uint16_t crank_revolutions = *((uint16_t *) p_data->notify.value);
-        p_data->notify.value += 2;
+        uint16_t crank_revolutions = *((uint16_t *) value);
+        value += 2;
 
-        uint16_t last_crank_revolutions_time = *((uint16_t *) p_data->notify.value);
-        p_data->notify.value += 2;
+        uint16_t last_crank_revolutions_time = *((uint16_t *) value);
+        value += 2;
 
         ESP_LOGI(TAG, "  -> 【%s】 crank revolutions : %d, last time %d", device_name, crank_revolutions, last_crank_revolutions_time);
 

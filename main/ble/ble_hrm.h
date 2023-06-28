@@ -6,7 +6,6 @@
 #include "esp_event.h"
 #include "esp_err.h"
 #include "driver/uart.h"
-#include "esp_gattc_api.h"
 
 #include "event_common.h"
 
@@ -21,6 +20,6 @@ static struct csc_measure_sensor {
     uint16_t heart_rate;
 } hr_measure_sensor_t;
 
-void ble_parse_hrm_data(char *device_name, esp_ble_gattc_cb_param_t *p_data);
+void ble_parse_hrm_data(char *device_name, uint8_t *value);
 
 #endif

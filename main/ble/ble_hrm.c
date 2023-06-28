@@ -1,5 +1,4 @@
 #include "esp_log.h"
-#include "esp_gattc_api.h"
 #include "ble_hrm.h"
 
 #define TAG "BLE_HR"
@@ -9,15 +8,15 @@ ESP_EVENT_DEFINE_BASE(BIKE_BLE_HRM_SENSOR_EVENT);
 // ble hrm event data
 static ble_hrm_data_t d;
 
-void ble_parse_hrm_data(char *device_name, esp_ble_gattc_cb_param_t *p_data) {
-    uint8_t flag = (*p_data->notify.value) & 0x01;
-    p_data->notify.value += 1;
+void ble_parse_hrm_data(char *device_name, uint8_t *value) {
+    uint8_t flag = (*value) & 0x01;
+    value += 1;
 
     uint16_t hrValue;
     if (flag) {
-        hrValue = *((uint16_t *) p_data->notify.value);
+        hrValue = *((uint16_t *) value);
     } else {
-        hrValue = *((uint8_t *) p_data->notify.value);
+        hrValue = *((uint8_t *) value);
     }
 
     d.heart_rate = hrValue;

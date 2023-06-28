@@ -6,7 +6,6 @@
 #include "esp_event.h"
 #include "esp_err.h"
 #include "driver/uart.h"
-#include "esp_gattc_api.h"
 
 #include "event_common.h"
 
@@ -31,6 +30,6 @@ typedef struct {
     uint16_t last_crank_event_time; // 1/1024s
 } csc_measure_sensor_t;
 
-void ble_parse_csc_data(char *device_name, esp_ble_gattc_cb_param_t *p_data);
+void ble_parse_csc_data(char *device_name, uint8_t *value);
 
 #endif

@@ -1,3 +1,5 @@
+#ifdef CONFIG_BT_BLUEDROID_ENABLED
+
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -430,11 +432,11 @@ gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, 
 
             esp_bt_uuid_t uuid = find_service_inst_by_handle(idx, p_data->notify.handle).uuid;
             if (ESP_GATT_UUID_CYCLING_SPEED_CADENCE_SVC == uuid.uuid.uuid16) {
-                ble_parse_csc_data(gl_profile_tab[idx].device_name, p_data);
+                ble_parse_csc_data(gl_profile_tab[idx].device_name, p_data->notify.value);
             } else if (ESP_GATT_UUID_BATTERY_SERVICE_SVC == uuid.uuid.uuid16) {
                 ESP_LOGI(GATTC_TAG, "notify battery level %d", *p_data->notify.value);
             } else if (ESP_GATT_UUID_HEART_RATE_SVC == uuid.uuid.uuid16) {
-                ble_parse_hrm_data(gl_profile_tab[idx].device_name, p_data);
+                ble_parse_hrm_data(gl_profile_tab[idx].device_name, p_data->notify.value);
             }
             break;
         case ESP_GATTC_WRITE_DESCR_EVT:
@@ -830,3 +832,5 @@ esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
 
     return ESP_OK;
 }
+
+#endif

@@ -5,8 +5,6 @@
 #include <esp_log.h>
 #include "esp_wifi.h"
 #include <esp_wifi_types.h>
-#include <esp_bt_main.h>
-#include "esp_bt.h"
 
 #include "bike_common.h"
 #include "lcd/epdpaint.h"
@@ -16,9 +14,13 @@
 #include "temperature_page.h"
 #include "sht31.h"
 #include "battery.h"
-#include "bike_common.h"
 #include "static/static.h"
 #include "page_manager.h"
+
+#ifdef CONFIG_BT_BLUEDROID_ENABLED
+#include "esp_bt.h"
+#include <esp_bt_main.h>
+#endif
 
 #define TAG "temp-page"
 
@@ -134,6 +136,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         icon_x += 26;
     }
 #ifdef CONFIG_ENABLE_BLE_DEVICES
+#ifdef CONFIG_BT_BLUEDROID_ENABLED
     if (esp_bluedroid_get_status() == ESP_BLUEDROID_STATUS_ENABLED) {
         // ble icon
         epd_paint_draw_bitmap(epd_paint, icon_x, 183, 11, 16,
@@ -141,6 +144,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
                               icon_ble_bmp_end - icon_ble_bmp_start, 1);
         icon_x += 15;
     }
+#endif
 #endif
 }
 
