@@ -1,8 +1,10 @@
 #ifndef BLE_DEVICE_H
 #define BLE_DEVICE_H
 
+#include "esp_bt.h"
 #include "ble_csc.h"
 #include "ble_hrm.h"
+#include "esp_gattc_api.h"
 
 ESP_EVENT_DECLARE_BASE(BLE_DEVICE_EVENT);
 

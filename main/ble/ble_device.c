@@ -1,5 +1,3 @@
-#ifdef CONFIG_BT_BLUEDROID_ENABLED
-
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
@@ -832,5 +830,3 @@ esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
 
     return ESP_OK;
 }
-
-#endif
