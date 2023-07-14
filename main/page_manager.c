@@ -94,7 +94,7 @@ static page_inst_t pages[] = {
             .enter_sleep_handler = ble_device_page_on_enter_sleep,
             .after_draw_page = ble_device_page_after_draw,
 #endif
-        }
+        },
 };
 
 static page_inst_t menus[] = {

@@ -71,10 +71,12 @@ void ble_device_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     for (int16_t i = offset_item; i < total_item_count; ++i) {
         if (i == 0) {
             if (scanning) {
+                // 搜索中...
                 uint8_t search_txt[] = {0xCB, 0xD1, 0xCB, 0xF7, 0xD6, 0xD0, 0x2E, 0x2E, 0x2E, 0x00};
                 epd_paint_draw_string_at(epd_paint, ITEM_HEIGHT + PADDING_X, y + TEXT_PADDING_Y,
                                          (char *) search_txt, &Font_HZK16, 1);
             } else {
+                // 搜索设备
                 uint8_t search_txt[] = {0xCB, 0xD1, 0xCB, 0xF7, 0xC9, 0xE8, 0xB1, 0xB8, 0x00};
                 epd_paint_draw_string_at(epd_paint, ITEM_HEIGHT + PADDING_X, y + TEXT_PADDING_Y,
                                          (char *) search_txt, &Font_HZK16, 1);
@@ -129,9 +131,9 @@ static void handle_click_event() {
     if (current_index == 0) {
         // refresh click
         ble_device_init(NULL);
-        ble_device_start_scan(10);
+        ble_device_start_scan(15);
     } else {
-        // bt item click
+        // bt item click try to connect bt device
     }
     page_manager_request_update(false);
 }
