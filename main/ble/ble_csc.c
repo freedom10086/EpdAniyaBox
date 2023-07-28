@@ -31,10 +31,6 @@ void on_wheel_measurement_received(uint32_t wheel_revolutions, uint16_t last_whe
     }
 
     // data repeat
-    if (csc_measure_sensor.first_wheel_data_get && csc_measure_sensor.last_wheel_event_time == last_wheel_event_time ) {
-        return;
-    }
-
     if (csc_measure_sensor.first_wheel_data_get) {
         float timeDifference;
         if (last_wheel_event_time < csc_measure_sensor.last_wheel_event_time)
@@ -50,9 +46,9 @@ void on_wheel_measurement_received(uint32_t wheel_revolutions, uint16_t last_whe
         float total_distance =
                 (float) (wheel_revolutions - csc_measure_sensor.first_wheel_revolutions) * (float) cirreplacedference /
                 1000.0f; // [m]
-        float speed = distanceDifference / timeDifference;
-        float wheel_dance =
-                (float) (wheel_revolutions - csc_measure_sensor.last_wheel_revolutions) * 60.0f / timeDifference;
+        float speed = timeDifference == 0 ? 0 : distanceDifference / timeDifference;
+        float wheel_dance = timeDifference == 0 ? 0
+                : (float) (wheel_revolutions - csc_measure_sensor.last_wheel_revolutions) * 60.0f / timeDifference;
 
         ESP_LOGI(TAG, " > speed: %fm/s %fkm/h, sensor_distance:%f, total_distance: %f, wheel_dance: %f",
                  speed, speed * 3.6f, sensor_total_distance, total_distance, wheel_dance);
@@ -121,7 +117,8 @@ void ble_parse_csc_data(char *device_name, uint8_t *value) {
         uint16_t last_wheel_revolutions_time = *((uint16_t *) value);
         value += 2;
 
-        ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %ld, last time %d", device_name,  wheel_revolutions, last_wheel_revolutions_time);
+        ESP_LOGI(TAG, "  -> 【%s】 wheel revolutions : %ld, last time %d", device_name, wheel_revolutions,
+                 last_wheel_revolutions_time);
         on_wheel_measurement_received(wheel_revolutions, last_wheel_revolutions_time);
     }
 
@@ -132,7 +129,8 @@ void ble_parse_csc_data(char *device_name, uint8_t *value) {
         uint16_t last_crank_revolutions_time = *((uint16_t *) value);
         value += 2;
 
-        ESP_LOGI(TAG, "  -> 【%s】 crank revolutions : %d, last time %d", device_name, crank_revolutions, last_crank_revolutions_time);
+        ESP_LOGI(TAG, "  -> 【%s】 crank revolutions : %d, last time %d", device_name, crank_revolutions,
+                 last_crank_revolutions_time);
 
         on_crank_measurement_received(crank_revolutions, last_crank_revolutions_time);
     }

@@ -84,6 +84,8 @@ const struct peer_dsc *peer_dsc_find_uuid(const struct peer *peer, const ble_uui
 const struct peer_chr *peer_chr_find_uuid(const struct peer *peer, const ble_uuid_t *svc_uuid,
                                           const ble_uuid_t *chr_uuid);
 
+struct peer_svc * peer_svc_find_range(struct peer *peer, uint16_t attr_handle);
+
 const struct peer_svc *peer_svc_find_uuid(const struct peer *peer, const ble_uuid_t *uuid);
 
 int peer_delete(uint16_t conn_handle);

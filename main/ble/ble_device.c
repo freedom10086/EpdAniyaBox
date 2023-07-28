@@ -5,11 +5,9 @@
 #include "esp_bt.h"
 #include "esp_log.h"
 
-#include "ble_csc.h"
 #include "ble_device.h"
 #include "bike_common.h"
 
-#include "esp_log.h"
 #include "nvs_flash.h"
 /* BLE */
 #include "nimble/nimble_port.h"
@@ -20,6 +18,7 @@
 
 #define GATTC_TAG "BLE_DEVICE"
 #define MAX_SCAN_RESULT_COUNT 30
+#define MAX_SERVICE_COUNT 30
 
 ESP_EVENT_DEFINE_BASE(BLE_DEVICE_EVENT);
 
@@ -29,315 +28,37 @@ static bool inited = false;
 static uint8_t scan_result_count = 0;
 static scan_result_t scan_rst_list[MAX_SCAN_RESULT_COUNT];
 
-//static struct service_char_map_t service_char_map[] = {
-//        {.service_uuid = ESP_GATT_UUID_CYCLING_SPEED_CADENCE_SVC, .char_uuid = CSC_MEASUREMENT_CHARACTERISTIC, .en_notify = true},
-//        {.service_uuid = ESP_GATT_UUID_BATTERY_SERVICE_SVC, .char_uuid = BATTERY_LEVEL_CHARACTERISTIC_UUID, .en_notify = true, .en_read = true},
-//        {.service_uuid = ESP_GATT_UUID_HEART_RATE_SVC, .char_uuid = ESP_GATT_HEART_RATE_MEAS, .en_notify = true},
-//        {.service_uuid = 0x0000,} // stop flag
-//};
+static char ble_device_buf[32];
 
-//struct gattc_service_inst {
-//    ble_uuid16_t uuid;
-//    uint16_t service_start_handle;
-//    uint16_t service_end_handle;
-//    uint16_t char_handle;
-//};
-//
-//struct gattc_profile_inst {
-//    char *device_name;
-//    esp_gattc_cb_t gattc_cb;
-//    uint16_t gattc_if;
-//    uint16_t conn_id;
-//    esp_bd_addr_t remote_bda;
-//    bool connect;
-//
-//    struct gattc_service_inst services[10];
-//    uint16_t service_count;
-//};
-
-/*** The UUID of the service containing the subscribable characterstic ***/
-static const ble_uuid_t *remote_svc_uuid =
-        BLE_UUID128_DECLARE(0x2d, 0x71, 0xa2, 0x59, 0xb4, 0x58, 0xc8, 0x12,
-                            0x99, 0x99, 0x43, 0x95, 0x12, 0x2f, 0x46, 0x59);
-
-/*** The UUID of the subscribable chatacteristic ***/
-static const ble_uuid_t *remote_chr_uuid =
-        BLE_UUID128_DECLARE(0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11,
-                            0x22, 0x22, 0x22, 0x22, 0x33, 0x33, 0x33, 0x33);
+static ble_svc_inst_t service_map[] = {
+        {
+                .uuid = BLE_UUID16_DECLARE(BLE_SVC_CSC_UUID),
+                .handle_peer = ble_csc_service_handle_peer,
+                .handle_notification = ble_csc_handle_notification
+        },
+        {
+                .uuid = BLE_UUID16_DECLARE(BLE_SVC_HRM_UUID),
+                .handle_peer = ble_hrm_service_handle_peer,
+                .handle_notification = ble_hrm_service_handle_notification
+        },
+        {
+                .uuid = BLE_UUID16_DECLARE(BLE_SVC_BATTERY),
+                .handle_peer = ble_battery_service_handle_peer,
+                .handle_notification = ble_battery_service_handle_notification
+        },
+        {
+                .uuid = BLE_UUID16_DECLARE(BLE_SVC_DEVICE_INFORMATION_UUID),
+                .handle_peer = ble_dev_info_service_handle_peer,
+        },
+        {
+                .uuid = BLE_UUID16_DECLARE(BLE_UUID_END), // end flag
+                .handle_peer = NULL,
+        }
+};
 
 static int ble_gap_event(struct ble_gap_event *event, void *arg);
 
 static uint8_t peer_addr[6];
-
-/**
- * Application Callback. Called when the custom subscribable chatacteristic
- * in the remote GATT server is read.
- * Expect to get the recently written data.
- **/
-static int ble_on_custom_read(uint16_t conn_handle,
-                                  const struct ble_gatt_error *error,
-                                  struct ble_gatt_attr *attr,
-                                  void *arg) {
-    ESP_LOGI(GATTC_TAG,
-             "Read complete for the subscribable characteristic; "
-             "status=%d conn_handle=%d", error->status, conn_handle);
-    if (error->status == 0) {
-        ESP_LOGI(GATTC_TAG, " attr_handle=%d value=", attr->handle);
-        print_mbuf(attr->om);
-    }
-    ESP_LOGI(GATTC_TAG, "\n");
-
-    return 0;
-}
-
-/**
- * Application Callback. Called when the custom subscribable characteristic
- * in the remote GATT server is written to.
- * Client has previously subscribed to this characeteristic,
- * so expect a notification from the server.
- **/
-static int ble_on_custom_write(uint16_t conn_handle,
-                                   const struct ble_gatt_error *error,
-                                   struct ble_gatt_attr *attr,
-                                   void *arg) {
-    const struct peer_chr *chr;
-    const struct peer *peer;
-    int rc;
-
-    ESP_LOGI(GATTC_TAG,
-             "Write to the custom subscribable characteristic complete; "
-             "status=%d conn_handle=%d attr_handle=%d\n",
-             error->status, conn_handle, attr->handle);
-
-    peer = peer_find(conn_handle);
-    chr = peer_chr_find_uuid(peer, remote_svc_uuid, remote_chr_uuid);
-    if (chr == NULL) {
-        ESP_LOGE(GATTC_TAG,
-                 "Error: Peer doesn't have the custom subscribable characteristic\n");
-        goto err;
-    }
-
-    /*** Performs a read on the characteristic, the result is handled in ble_on_new_read callback ***/
-    rc = ble_gattc_read(conn_handle, chr->chr.val_handle,ble_on_custom_read, NULL);
-    if (rc != 0) {
-        ESP_LOGE(GATTC_TAG,
-                 "Error: Failed to read the custom subscribable characteristic; "
-                 "rc=%d\n", rc);
-        goto err;
-    }
-
-    return 0;
-    err:
-    /* Terminate the connection */
-    return ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-}
-
-/**
- * Application Callback. Called when the custom subscribable characteristic
- * is subscribed to.
- **/
-static int ble_on_custom_subscribe(uint16_t conn_handle,
-                                       const struct ble_gatt_error *error,
-                                       struct ble_gatt_attr *attr,
-                                       void *arg) {
-    const struct peer_chr *chr;
-    uint8_t value;
-    int rc;
-    const struct peer *peer;
-
-    ESP_LOGI(GATTC_TAG,
-             "Subscribe to the custom subscribable characteristic complete; "
-             "status=%d conn_handle=%d", error->status, conn_handle);
-
-    if (error->status == 0) {
-        ESP_LOGI(GATTC_TAG, " attr_handle=%d value=", attr->handle);
-        print_mbuf(attr->om);
-    }
-    ESP_LOGI(GATTC_TAG, "\n");
-
-    peer = peer_find(conn_handle);
-    chr = peer_chr_find_uuid(peer,
-                             remote_svc_uuid,
-                             remote_chr_uuid);
-    if (chr == NULL) {
-        ESP_LOGE(GATTC_TAG, "Error: Peer doesn't have the subscribable characteristic\n");
-        goto err;
-    }
-
-    /* Write 1 byte to the new characteristic to test if it notifies after subscribing */
-    value = 0x19;
-    rc = ble_gattc_write_flat(conn_handle, chr->chr.val_handle,
-                              &value, sizeof(value), ble_on_custom_write, NULL);
-    if (rc != 0) {
-        ESP_LOGE(GATTC_TAG,
-                 "Error: Failed to write to the subscribable characteristic; "
-                 "rc=%d\n", rc);
-        goto err;
-    }
-
-    return 0;
-    err:
-    /* Terminate the connection */
-    return ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-}
-
-/**
- * Performs 3 operations on the remote GATT server.
- * 1. Subscribes to a characteristic by writing 0x10 to it's CCCD.
- * 2. Writes to the characteristic and expect a notification from remote.
- * 3. Reads the characteristic and expect to get the recently written information.
- **/
-static void ble_custom_gatt_operations(const struct peer *peer) {
-    const struct peer_dsc *dsc;
-    int rc;
-    uint8_t value[2];
-
-    dsc = peer_dsc_find_uuid(peer,
-                             remote_svc_uuid,
-                             remote_chr_uuid,
-                             BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16));
-    if (dsc == NULL) {
-        ESP_LOGE(GATTC_TAG, "Error: Peer lacks a CCCD for the subscribable characterstic\n");
-        goto err;
-    }
-
-    /*** Write 0x00 and 0x01 (The subscription code) to the CCCD ***/
-    value[0] = 1;
-    value[1] = 0;
-    rc = ble_gattc_write_flat(peer->conn_handle, dsc->dsc.handle,
-                              value, sizeof(value), ble_on_custom_subscribe, NULL);
-    if (rc != 0) {
-        ESP_LOGE(GATTC_TAG,
-                 "Error: Failed to subscribe to the subscribable characteristic; "
-                 "rc=%d\n", rc);
-        goto err;
-    }
-
-    return;
-    err:
-    /* Terminate the connection */
-    ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-}
-
-/**
- * Application callback.  Called when the attempt to subscribe to notifications
- * for the ANS Unread Alert Status characteristic has completed.
- */
-static int ble_on_subscribe(uint16_t conn_handle,
-                     const struct ble_gatt_error *error,
-                     struct ble_gatt_attr *attr,
-                     void *arg) {
-    struct peer *peer;
-
-    ESP_LOGI(GATTC_TAG, "Subscribe complete; status=%d conn_handle=%d "
-                        "attr_handle=%d\n",
-             error->status, conn_handle, attr->handle);
-
-    peer = peer_find(conn_handle);
-    if (peer == NULL) {
-        ESP_LOGE(GATTC_TAG, "Error in finding peer, aborting...");
-        ble_gap_terminate(conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-    }
-    /* Subscribe to, write to, and read the custom characteristic*/
-    ble_custom_gatt_operations(peer);
-
-    return 0;
-}
-
-/**
- * Application callback.  Called when the write to the ANS Alert Notification
- * Control Point characteristic has completed.
- */
-static int ble_on_write(uint16_t conn_handle,
-                        const struct ble_gatt_error *error,
-                        struct ble_gatt_attr *attr,
-                        void *arg) {
-    ESP_LOGI(GATTC_TAG,
-             "Write complete; status=%d conn_handle=%d attr_handle=%d\n",
-             error->status, conn_handle, attr->handle);
-
-    /* Subscribe to notifications for the Unread Alert Status characteristic.
-     * A central enables notifications by writing two bytes (1, 0) to the
-     * characteristic's client-characteristic-configuration-descriptor (CCCD).
-     */
-    const struct peer_dsc *dsc;
-    uint8_t value[2];
-    int rc;
-    const struct peer *peer = peer_find(conn_handle);
-
-    dsc = peer_dsc_find_uuid(peer,
-                             BLE_UUID16_DECLARE(BLECENT_SVC_ALERT_UUID),
-                             BLE_UUID16_DECLARE(BLECENT_CHR_UNR_ALERT_STAT_UUID),
-                             BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16));
-    if (dsc == NULL) {
-        ESP_LOGE(GATTC_TAG, "Error: Peer lacks a CCCD for the Unread Alert "
-                            "Status characteristic\n");
-        goto err;
-    }
-
-    value[0] = 1;
-    value[1] = 0;
-    rc = ble_gattc_write_flat(conn_handle, dsc->dsc.handle,
-                              value, sizeof value, ble_on_subscribe, NULL);
-    if (rc != 0) {
-        ESP_LOGE(GATTC_TAG, "Error: Failed to subscribe to characteristic; "
-                            "rc=%d\n", rc);
-        goto err;
-    }
-
-    return 0;
-    err:
-    /* Terminate the connection. */
-    return ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-}
-
-/**
- * Application callback.  Called when the read of the ANS Supported New Alert
- * Category characteristic has completed.
- */
-static int ble_on_read(uint16_t conn_handle,
-                       const struct ble_gatt_error *error,
-                       struct ble_gatt_attr *attr,
-                       void *arg) {
-    ESP_LOGI(GATTC_TAG, "Read complete; status=%d conn_handle=%d", error->status,
-             conn_handle);
-    if (error->status == 0) {
-        ESP_LOGI(GATTC_TAG, " attr_handle=%d value=", attr->handle);
-        print_mbuf(attr->om);
-    }
-    ESP_LOGI(GATTC_TAG, "\n");
-
-    /* Write two bytes (99, 100) to the alert-notification-control-point
-     * characteristic.
-     */
-    const struct peer_chr *chr;
-    uint8_t value[2];
-    int rc;
-    const struct peer *peer = peer_find(conn_handle);
-
-    chr = peer_chr_find_uuid(peer,
-                             BLE_UUID16_DECLARE(BLECENT_SVC_ALERT_UUID),
-                             BLE_UUID16_DECLARE(BLECENT_CHR_ALERT_NOT_CTRL_PT));
-    if (chr == NULL) {
-        ESP_LOGE(GATTC_TAG, "Error: Peer doesn't support the Alert "
-                            "Notification Control Point characteristic\n");
-        goto err;
-    }
-
-    value[0] = 99;
-    value[1] = 100;
-    rc = ble_gattc_write_flat(conn_handle, chr->chr.val_handle, value, sizeof value, ble_on_write, NULL);
-    if (rc != 0) {
-        ESP_LOGE(GATTC_TAG, "Error: Failed to write characteristic; rc=%d\n",
-                 rc);
-        goto err;
-    }
-
-    return 0;
-    err:
-    /* Terminate the connection. */
-    return ble_gap_terminate(peer->conn_handle, BLE_ERR_REM_USER_CONN_TERM);
-}
 
 /**
  * Performs three GATT operations against the specified peer:
@@ -355,7 +76,32 @@ static void ble_read_write_subscribe(const struct peer *peer) {
     const struct peer_chr *chr;
     int rc;
 
-    /* Read the supported-new-alert-category characteristic. */
+//    rc = ble_battery_service_handle_peer(peer);
+//    if (rc != 0) {
+//        ESP_LOGE(GATTC_TAG, "Error: ble_battery_service_handle_peer; rc=%d\n", rc);
+//        goto err;
+//    }
+
+//    rc = ble_csc_service_handle_peer(peer);
+//    if (rc != 0) {
+//        ESP_LOGE(GATTC_TAG, "Error: ble_csc_service_handle_peer; rc=%d\n", rc);
+//        goto err;
+//    }
+
+//    rc = ble_dev_info_service_handle_peer(peer);
+//    if (rc != 0) {
+//        ESP_LOGE(GATTC_TAG, "Error: ble_dev_info_service_handle_peer; rc=%d\n", rc);
+//        goto err;
+//    }
+
+    rc = ble_hrm_service_handle_peer(peer);
+    if (rc != 0) {
+        ESP_LOGE(GATTC_TAG, "Error: ble_hrm_service_handle_peer; rc=%d\n", rc);
+        goto err;
+    }
+
+    /*
+    // Read the supported-new-alert-category characteristic.
     chr = peer_chr_find_uuid(peer,
                              BLE_UUID16_DECLARE(BLECENT_SVC_ALERT_UUID),
                              BLE_UUID16_DECLARE(BLECENT_CHR_SUP_NEW_ALERT_CAT_UUID));
@@ -371,7 +117,7 @@ static void ble_read_write_subscribe(const struct peer *peer) {
                  rc);
         goto err;
     }
-
+    */
     return;
     err:
     /* Terminate the connection. */
@@ -391,10 +137,7 @@ static void ble_on_disc_complete(const struct peer *peer, int status, void *arg)
         return;
     }
 
-    /* Service discovery has completed successfully.  Now we have a complete
-     * list of services, characteristics, and descriptors that the peer
-     * supports.
-     */
+    // 服务发现完成
     ESP_LOGI(GATTC_TAG, "Service discovery complete; status=%d "
                         "conn_handle=%d\n", status, peer->conn_handle);
 
@@ -462,7 +205,6 @@ static int ble_should_connect(const struct ble_gap_disc_desc *disc) {
     int rc;
     int i;
 
-    ESP_LOGI(GATTC_TAG, "event_type: %d", disc->event_type);
     /* The device has to be advertising connectability. */
     if (disc->event_type != BLE_HCI_ADV_RPT_EVTYPE_ADV_IND
         && disc->event_type != BLE_HCI_ADV_RPT_EVTYPE_DIR_IND
@@ -475,7 +217,7 @@ static int ble_should_connect(const struct ble_gap_disc_desc *disc) {
         return 0;
     }
 
-    ESP_LOGI(GATTC_TAG, "device addr: %s", addr_str(disc->addr.val));
+    ESP_LOGI(GATTC_TAG, "device addr: %s, event type %d", addr_str(disc->addr.val), disc->event_type);
     if (fields.name != NULL && fields.name_len) {
         char s[BLE_HS_ADV_MAX_SZ];
         memcpy(s, fields.name, fields.name_len);
@@ -483,22 +225,13 @@ static int ble_should_connect(const struct ble_gap_disc_desc *disc) {
         ESP_LOGI(GATTC_TAG, "device name: %s", s);
     }
 
-//    char * CONFIG_EXAMPLE_PEER_ADDR = "aa:bb:cc:dd:ee:ff";
-//    if (strlen(CONFIG_EXAMPLE_PEER_ADDR)) {
-//        ESP_LOGI(GATTC_TAG, "Peer address from menuconfig: %s", CONFIG_EXAMPLE_PEER_ADDR);
-//        /* Convert string to address */
-//        sscanf(CONFIG_EXAMPLE_PEER_ADDR, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-//               &peer_addr[5], &peer_addr[4], &peer_addr[3],
-//               &peer_addr[2], &peer_addr[1], &peer_addr[0]);
-//        if (memcmp(peer_addr, disc->addr.val, sizeof(disc->addr.val)) != 0) {
-//            return 0;
-//        }
-//    }
-
     /* The device has to advertise support HRM service (0x1811).
      */
     for (i = 0; i < fields.num_uuids16; i++) {
         if (ble_uuid_u16(&fields.uuids16[i].u) == BLE_SVC_HRM_UUID) {
+            return 1;
+        }
+        if (ble_uuid_u16(&fields.uuids16[i].u) == BLE_SVC_CSC_UUID) {
             return 1;
         }
     }
@@ -590,13 +323,22 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
     struct ble_hs_adv_fields fields;
     int rc;
 
-    if (event->type != BLE_GAP_EVENT_DISC) {
-        ESP_LOGI(GATTC_TAG, "rev ble_gap_event %d", event->type);
-    }
+    // ESP_LOGI(GATTC_TAG, "rev ble_gap_event %d", event->type);
     switch (event->type) {
         case BLE_GAP_EVENT_DISC:
-            // 主动扫描回复包
-            if (event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_SCAN_RSP) {
+            // EVTYPE_ADV_IND    可连接的非定向广播
+            // EVTYPE_DIR_IND    可连接的定向广播
+            // EVTYPE_SCAN_IND   可扫描的非定向广播 不可连接 可以响应扫描发送扫描回应数据
+            // EVTYPE_NONCONN_IND 不可连接的非定向广播 仅仅发送广播数据，而不想被扫描或者连接
+            // EVTYPE_SCAN_RSP    扫描响应
+            if (event->disc.event_type == BLE_HCI_ADV_RPT_EVTYPE_NONCONN_IND
+                || event->disc.event_type == BLE_HCI_ADV_RPT_EVTYPE_SCAN_IND) {
+                return 0;
+            }
+            if (event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_ADV_IND
+                && event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_DIR_IND
+                && event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_SCAN_RSP) {
+                ESP_LOGI(GATTC_TAG, "ignore rev BLE_GAP_EVENT_DISC event %d", event->disc.event_type);
                 return 0;
             }
 
@@ -612,12 +354,42 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             }
 
             /* An advertisment report was received during GAP discovery. */
-            print_adv_fields(&fields);
+            // print_adv_fields(&fields);
 
-            // common_post_event(BLE_DEVICE_EVENT, BT_NEW_SCAN_RESULT);
+            // post search result message if device is supported
+            if (ble_should_connect((struct ble_gap_disc_desc *) &event->disc)) {
+                for (int i = 0; i < scan_result_count; ++i) {
+                    if (memcmp(scan_rst_list[i].addr.val, event->disc.addr.val, sizeof(event->disc.addr.val)) == 0) {
+                        // update
+                        scan_rst_list[i].rssi = event->disc.rssi;
+                        ESP_LOGI(GATTC_TAG, "find exist device: %s addr: %s rssi: %d", scan_rst_list[i].dev_name,
+                                 addr_str(event->disc.addr.val), event->disc.rssi);
+                        return 0;
+                    }
+                }
+
+                // not exist
+                if (scan_result_count < MAX_SCAN_RESULT_COUNT) {
+                    //add to result list
+                    //memset(scan_rst_list[scan_result_count].dev_name, '\0', MAX_BLE_DEVICE_NAME_LEN);
+                    memcpy(scan_rst_list[scan_result_count].dev_name, fields.name, fields.name_len);
+                    scan_rst_list[scan_result_count].dev_name[fields.name_len] = '\0';
+                    scan_rst_list[scan_result_count].dev_name_len = fields.name_len;
+                    scan_rst_list[scan_result_count].addr = event->disc.addr;
+                    scan_rst_list[scan_result_count].rssi = event->disc.rssi;
+                    scan_result_count += 1;
+
+                    ESP_LOGI(GATTC_TAG, "find new device %s %s", scan_rst_list[scan_result_count].dev_name,
+                             addr_str(event->disc.addr.val));
+
+                    common_post_event(BLE_DEVICE_EVENT, BT_NEW_SCAN_RESULT);
+                } else {
+                    ESP_LOGE(GATTC_TAG, "arrive max result size %d ignore", scan_result_count);
+                }
+            }
 
             /* Try to connect to the advertiser if it looks interesting. */
-            ble_connect_if_interesting(&event->disc);
+            // ble_connect_if_interesting(&event->disc);
             return 0;
 
         case BLE_GAP_EVENT_CONNECT:
@@ -625,8 +397,6 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             if (event->connect.status == 0) {
                 /* Connection successfully established. */
                 ESP_LOGI(GATTC_TAG, "Connection established ");
-
-                common_post_event(BLE_DEVICE_EVENT, BT_CONNECT_SUCCESS);
 
                 rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
                 assert(rc == 0);
@@ -661,6 +431,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
                     ESP_LOGI(GATTC_TAG, "Successfully issued VSC , rc = %d \n", rc);
 #endif
 #endif
+                common_post_event(BLE_DEVICE_EVENT, BT_CONNECT_SUCCESS);
 
                 /* Perform service discovery */
                 rc = peer_disc_all(event->connect.conn_handle, ble_on_disc_complete, NULL);
@@ -671,16 +442,12 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             } else {
                 /* Connection attempt failed; resume scanning. */
                 ESP_LOGE(GATTC_TAG, "Error: Connection failed; status=%d\n", event->connect.status);
-
                 common_post_event(BLE_DEVICE_EVENT, BT_CONNECT_FAILED);
-
-                ble_device_start_scan(10);
             }
-
             return 0;
-
         case BLE_GAP_EVENT_DISCONNECT:
             /* Connection terminated. */
+            // 520 掉线
             ESP_LOGI(GATTC_TAG, "disconnect; reason=%d ", event->disconnect.reason);
             print_conn_desc(&event->disconnect.conn);
             ESP_LOGI(GATTC_TAG, "\n");
@@ -688,8 +455,10 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             /* Forget about peer. */
             peer_delete(event->disconnect.conn.conn_handle);
 
+            common_post_event(BLE_DEVICE_EVENT, BT_DISCONNECT);
+
             /* Resume scanning. */
-            ble_device_start_scan(10);
+            // ble_device_start_scan(10);
             return 0;
 
         case BLE_GAP_EVENT_DISC_COMPLETE:
@@ -708,15 +477,39 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
             return 0;
 
         case BLE_GAP_EVENT_NOTIFY_RX:
+            // 收到订阅消息
             /* Peer sent us a notification or indication. */
-            ESP_LOGI(GATTC_TAG, "received %s; conn_handle=%d attr_handle=%d "
-                                "attr_len=%d\n",
+            ESP_LOGI(GATTC_TAG, "\nreceived %s; conn_handle=%d attr_handle=%d "
+                                "attr_len=%d",
                      event->notify_rx.indication ?
                      "indication" :
                      "notification",
                      event->notify_rx.conn_handle,
                      event->notify_rx.attr_handle,
                      OS_MBUF_PKTLEN(event->notify_rx.om));
+
+            struct peer *peer = peer_find(event->notify_rx.conn_handle);
+            if (peer != NULL) {
+                struct peer_svc *svc = peer_svc_find_range(peer, event->notify_rx.attr_handle);
+                if (svc != NULL) {
+                    ESP_LOGI(GATTC_TAG, "find notification svc %s", ble_uuid_to_str(&svc->svc.uuid.u, ble_device_buf));
+                    for (int i = 0; i < MAX_SERVICE_COUNT; ++i) {
+                        ble_svc_inst_t inst = service_map[i];
+                        if (ble_uuid_cmp(inst.uuid, BLE_UUID16_DECLARE(BLE_UUID_END)) == 0) {
+                            ESP_LOGW(GATTC_TAG, "can not find notification handler %s", ble_uuid_to_str(&svc->svc.uuid.u, ble_device_buf));
+                            break;
+                        }
+                        if (ble_uuid_cmp(inst.uuid, &svc->svc.uuid.u) == 0) {
+                            // find
+                            inst.handle_notification(peer, event->notify_rx.om,
+                                                     event->notify_rx.attr_handle,
+                                                     event->notify_rx.conn_handle,
+                                                     event->notify_rx.indication);
+                            break;
+                        }
+                    }
+                }
+            }
 
             /* Attribute data is contained in event->notify_rx.om. Use
              * `os_mbuf_copydata` to copy the data received in notification mbuf */
@@ -776,6 +569,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg) {
     return 0;
 #endif
         default:
+            ESP_LOGI(GATTC_TAG, "rev ble_gap_event %d", event->type);
             return 0;
     }
 }
@@ -807,7 +601,7 @@ esp_err_t ble_device_start_scan(uint8_t duration) {
      * 主动扫描，主动扫描的设备会发送ScanReq给到广播设备要求更多数据
      * 被动扫描，仅仅接收广播，不会去主动要求更多数据
      */
-    disc_params.passive = 0;
+    disc_params.passive = 1;
 
     /* Use defaults for the rest of the parameters. */
     disc_params.itvl = 0;
@@ -839,7 +633,7 @@ static void ble_on_sync(void) {
     assert(rc == 0);
 
     /* Begin scanning for a peripheral to connect to. */
-    ble_device_start_scan(15);
+    ble_device_start_scan(10);
 }
 
 void ble_host_task(void *param) {
@@ -884,6 +678,9 @@ esp_err_t ble_device_init(const ble_device_config_t *config) {
 
     common_post_event(BLE_DEVICE_EVENT, BT_INIT);
     inited = true;
+
+    ESP_LOGI(GATTC_TAG, "ble init OK !");
+
     return ESP_OK;
 }
 
@@ -892,13 +689,42 @@ scan_result_t *ble_device_get_scan_rst(uint8_t *result_count) {
     return scan_rst_list;
 }
 
-esp_err_t ble_device_connect() {
+esp_err_t ble_device_connect(ble_addr_t addr) {
+    uint8_t own_addr_type;
+    int rc;
+
+    /* Scanning must be stopped before a connection can be initiated. */
+    rc = ble_gap_disc_cancel();
+    scanning = false;
+    if (rc != 0 && rc != BLE_HS_EALREADY) {
+        ESP_LOGI(GATTC_TAG, "Failed to cancel scan; rc=%d\n", rc);
+        return rc;
+    }
+
+    /* Figure out address to use for connect (no privacy for now) */
+    rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    if (rc != 0) {
+        ESP_LOGE(GATTC_TAG, "error determining address type; rc=%d\n", rc);
+        return rc;
+    }
+
+    // Try to connect to the advertiser.  Allow 20 seconds (20000 ms) for timeout.
+    ESP_LOGI(GATTC_TAG, "start connect to %s", addr_str(&addr));
+    common_post_event(BLE_DEVICE_EVENT, BT_START_CONNECT);
+
+    rc = ble_gap_connect(own_addr_type, &addr, 20000, NULL,
+                         ble_gap_event, NULL);
+    if (rc != 0) {
+        ESP_LOGE(GATTC_TAG, "Error: Failed to connect to device; addr_type=%d "
+                            "addr=%s; rc=%d\n",
+                 addr.type, addr_str(addr.val), rc);
+        return rc;
+    }
+
     return ESP_OK;
 }
 
-esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
-    vTaskDelay(1000);
-
+esp_err_t ble_device_deinit() {
     ESP_LOGI(GATTC_TAG, "Deinit ble host");
 
     int rc = nimble_port_stop();
@@ -911,5 +737,8 @@ esp_err_t ble_device_deinit(esp_event_loop_handle_t hdl) {
 
     common_post_event(BLE_DEVICE_EVENT, BT_DEINIT);
     inited = false;
+
+    ESP_LOGI(GATTC_TAG, "ble deinit ok!");
+
     return ESP_OK;
 }

@@ -131,9 +131,12 @@ static void handle_click_event() {
     if (current_index == 0) {
         // refresh click
         ble_device_init(NULL);
-        ble_device_start_scan(15);
+        ble_device_start_scan(10);
     } else {
         // bt item click try to connect bt device
+        uint8_t scan_rst_count = 0;
+        scan_result_t *scan_rst = ble_device_get_scan_rst(&scan_rst_count);
+        ble_device_connect(scan_rst[current_index - 1].addr);
     }
     page_manager_request_update(false);
 }
@@ -160,7 +163,7 @@ bool ble_device_page_key_click(key_event_id_t key_event_type) {
 }
 
 void ble_device_page_on_destroy(void *arg) {
-
+    ble_device_deinit();
 }
 
 int ble_device_page_on_enter_sleep(void *args) {

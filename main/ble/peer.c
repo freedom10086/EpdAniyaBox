@@ -2,6 +2,11 @@
 #include <string.h>
 #include "host/ble_hs.h"
 #include "esp_central.h"
+#include "esp_log.h"
+
+#define TAG "PEER"
+
+static char peer_buf[32];
 
 static void *peer_svc_mem;
 static struct os_mempool peer_svc_pool;
@@ -15,8 +20,6 @@ static struct os_mempool peer_dsc_pool;
 static void *peer_mem;
 static struct os_mempool peer_pool;
 static SLIST_HEAD(, peer) peers;
-
-static struct peer_svc * peer_svc_find_range(struct peer *peer, uint16_t attr_handle);
 
 static struct peer_svc * peer_svc_find(struct peer *peer, uint16_t svc_start_handle, struct peer_svc **out_prev);
 
@@ -418,7 +421,7 @@ static struct peer_svc * peer_svc_find(struct peer *peer, uint16_t svc_start_han
     return svc;
 }
 
-static struct peer_svc * peer_svc_find_range(struct peer *peer, uint16_t attr_handle) {
+struct peer_svc * peer_svc_find_range(struct peer *peer, uint16_t attr_handle) {
     struct peer_svc *svc;
 
     SLIST_FOREACH(svc, &peer->svcs, next) {
@@ -531,6 +534,7 @@ static int peer_svc_disced(uint16_t conn_handle, const struct ble_gatt_error *er
 
     switch (error->status) {
         case 0:
+            ESP_LOGI(TAG, "disc service uuid %s", ble_uuid_to_str(&service->uuid.u, peer_buf));
             rc = peer_svc_add(peer, service);
             break;
 

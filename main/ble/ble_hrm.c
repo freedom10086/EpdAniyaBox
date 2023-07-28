@@ -22,5 +22,5 @@ void ble_parse_hrm_data(char *device_name, uint8_t *value) {
     d.heart_rate = hrValue;
     esp_event_post_to(event_loop_handle, BIKE_BLE_HRM_SENSOR_EVENT, BLE_HRM_SENSOR_UPDATE,
                       &d, sizeof(ble_hrm_data_t), 100 / portTICK_PERIOD_MS);
-    //ESP_LOGI(TAG, "heart rate: %d", hrValue);
+    ESP_LOGI(TAG, "heart rate: %d", hrValue);
 }

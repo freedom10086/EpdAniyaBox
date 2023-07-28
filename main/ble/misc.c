@@ -76,6 +76,7 @@ void print_conn_desc(const struct ble_gap_conn_desc *desc) {
                 desc->sec_state.encrypted,
                 desc->sec_state.authenticated,
                 desc->sec_state.bonded);
+    printf("\n");
 }
 
 #if CONFIG_EXAMPLE_EXTENDED_ADV
