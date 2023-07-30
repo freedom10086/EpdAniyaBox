@@ -284,6 +284,25 @@ bool sht31_read_temp_hum() {
     return true;
 }
 
+bool sht31_get_temp_hum(float *temp, float *hum) {
+    if (!sht31_inited) {
+        return false;
+    }
+
+    if (!sht31.data_valid) {
+        sht31_read_temp_hum();
+    }
+
+    if (!sht31.data_valid) {
+        return false;
+    }
+
+    *temp = sht31.data.temp;
+    *hum = sht31.data.hum;
+
+    return true;
+}
+
 void sht31_deinit() {
     ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
     ESP_LOGI(TAG, "I2C de-initialized successfully");

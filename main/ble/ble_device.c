@@ -16,6 +16,8 @@
 #include "host/util/util.h"
 #include "services/gap/ble_svc_gap.h"
 
+#include "common_utils.h"
+
 #define GATTC_TAG "BLE_DEVICE"
 #define MAX_SCAN_RESULT_COUNT 30
 #define MAX_SERVICE_COUNT 30

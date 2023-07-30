@@ -42,7 +42,11 @@ static page_inst_t pages[] = {
         },
         [2] = {
                 .page_name = "test",
+                .on_create_page = test_page_on_create,
                 .on_draw_page = test_page_draw,
+                .key_click_handler = test_page_key_click,
+                .on_destroy_page = test_page_on_destroy,
+                .enter_sleep_handler = test_page_on_enter_sleep,
         },
         [IMAGE_PAGE_INDEX] = {
                 .page_name = "image",

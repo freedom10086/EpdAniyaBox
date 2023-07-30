@@ -9,7 +9,7 @@
 #include "ble_svc_device_information.h"
 #include "ble_svc_hrm.h"
 #include "modlog/modlog.h"
-#include "esp_central.h"
+#include "ble_peer.h"
 
 ESP_EVENT_DECLARE_BASE(BLE_DEVICE_EVENT);
 

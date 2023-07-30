@@ -3,6 +3,7 @@
 //
 
 #include "ble_svc_battery_level.h"
+#include "common_utils.h"
 
 static int ble_on_battery_change_subscribe(uint16_t conn_handle,
                                    const struct ble_gatt_error *error,

@@ -1,15 +1,12 @@
-/*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
- *
- * SPDX-License-Identifier: Unlicense OR CC0-1.0
- */
+
+#include "common_utils.h"
+
 
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include "host/ble_hs.h"
 #include "host/ble_uuid.h"
-#include "esp_central.h"
 
 /**
  * Utility function to log an array of bytes.
@@ -56,26 +53,34 @@ void print_uuid(const ble_uuid_t *uuid) {
     printf("%s", ble_uuid_to_str(uuid, buf));
 }
 
+void print_addr(const void *addr) {
+    const uint8_t *u8p;
+
+    u8p = addr;
+    printf("%02x:%02x:%02x:%02x:%02x:%02x",
+           u8p[5], u8p[4], u8p[3], u8p[2], u8p[1], u8p[0]);
+}
+
 /**
  * Logs information about a connection to the console.
  */
 void print_conn_desc(const struct ble_gap_conn_desc *desc) {
     printf("handle=%d our_ota_addr_type=%d our_ota_addr=%s ",
-                desc->conn_handle, desc->our_ota_addr.type,
-                addr_str(desc->our_ota_addr.val));
+           desc->conn_handle, desc->our_ota_addr.type,
+           addr_str(desc->our_ota_addr.val));
     printf("our_id_addr_type=%d our_id_addr=%s ",
-                desc->our_id_addr.type, addr_str(desc->our_id_addr.val));
+           desc->our_id_addr.type, addr_str(desc->our_id_addr.val));
     printf("peer_ota_addr_type=%d peer_ota_addr=%s ",
-                desc->peer_ota_addr.type, addr_str(desc->peer_ota_addr.val));
+           desc->peer_ota_addr.type, addr_str(desc->peer_ota_addr.val));
     printf("peer_id_addr_type=%d peer_id_addr=%s ",
-                desc->peer_id_addr.type, addr_str(desc->peer_id_addr.val));
+           desc->peer_id_addr.type, addr_str(desc->peer_id_addr.val));
     printf("conn_itvl=%d conn_latency=%d supervision_timeout=%d "
-                       "encrypted=%d authenticated=%d bonded=%d",
-                desc->conn_itvl, desc->conn_latency,
-                desc->supervision_timeout,
-                desc->sec_state.encrypted,
-                desc->sec_state.authenticated,
-                desc->sec_state.bonded);
+           "encrypted=%d authenticated=%d bonded=%d",
+           desc->conn_itvl, desc->conn_latency,
+           desc->supervision_timeout,
+           desc->sec_state.encrypted,
+           desc->sec_state.authenticated,
+           desc->sec_state.bonded);
     printf("\n");
 }
 
@@ -112,7 +117,7 @@ void print_adv_fields(const struct ble_hs_adv_fields *fields) {
 
     if (fields->uuids16 != NULL) {
         printf("    uuids16(%scomplete)=",
-                    fields->uuids16_is_complete ? "" : "in");
+               fields->uuids16_is_complete ? "" : "in");
         for (i = 0; i < fields->num_uuids16; i++) {
             print_uuid(&fields->uuids16[i].u);
             printf(" ");
@@ -122,7 +127,7 @@ void print_adv_fields(const struct ble_hs_adv_fields *fields) {
 
     if (fields->uuids32 != NULL) {
         printf("    uuids32(%scomplete)=",
-                    fields->uuids32_is_complete ? "" : "in");
+               fields->uuids32_is_complete ? "" : "in");
         for (i = 0; i < fields->num_uuids32; i++) {
             print_uuid(&fields->uuids32[i].u);
             printf(" ");
@@ -132,7 +137,7 @@ void print_adv_fields(const struct ble_hs_adv_fields *fields) {
 
     if (fields->uuids128 != NULL) {
         printf("    uuids128(%scomplete)=",
-                    fields->uuids128_is_complete ? "" : "in");
+               fields->uuids128_is_complete ? "" : "in");
         for (i = 0; i < fields->num_uuids128; i++) {
             print_uuid(&fields->uuids128[i].u);
             printf(" ");
@@ -145,7 +150,7 @@ void print_adv_fields(const struct ble_hs_adv_fields *fields) {
         memcpy(s, fields->name, fields->name_len);
         s[fields->name_len] = '\0';
         printf("    name(%scomplete)=%s\n",
-                    fields->name_is_complete ? "" : "in", s);
+               fields->name_is_complete ? "" : "in", s);
     }
 
     if (fields->tx_pwr_lvl_is_present) {

@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "host/ble_hs.h"
-#include "esp_central.h"
+#include "ble_peer.h"
 #include "esp_log.h"
 
 #define TAG "PEER"

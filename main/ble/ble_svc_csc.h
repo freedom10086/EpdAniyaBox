@@ -7,7 +7,7 @@
 
 #include "esp_bt.h"
 #include "modlog/modlog.h"
-#include "esp_central.h"
+#include "ble_peer.h"
 #include "ble_uuid.h"
 
 #define GATTC_TAG "CSC_SVC"

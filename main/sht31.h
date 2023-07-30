@@ -34,5 +34,6 @@ typedef enum {
 void sht31_init();
 void sht31_reset();
 bool sht31_read_temp_hum();
+bool sht31_get_temp_hum(float *temp, float *hum);
 void sht31_deinit();
 #endif
