@@ -40,6 +40,8 @@ static bool temperature_valid = false;
 static float humility;
 static bool humility_valid = false;
 
+static bool invalid_drawed = false;
+
 extern esp_event_loop_handle_t event_loop_handle;
 
 static void temp_sensor_event_handler(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data) {
@@ -51,7 +53,7 @@ static void temp_sensor_event_handler(void *arg, esp_event_base_t event_base, in
             temperature = data->temp;
             humility = data->hum;
 
-            if (temperature_valid == false) {
+            if (invalid_drawed) {
                 ESP_LOGI(TAG, "temp current is invalid request update...");
                 page_manager_request_update(false);
             }
@@ -88,6 +90,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     //epd_paint_draw_string_at(epd_paint, 167, 2, (char *)temp, &Font_HZK16, 1);
     digi_view_t *temp_label = digi_view_create(8, 24, 44, 7, 2);
 
+    invalid_drawed = false;
     if (temperature_valid) {
         if (temperature > 100) {
             temperature = 100;
@@ -98,6 +101,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         digi_view_draw(temp_label, epd_paint, loop_cnt);
     } else {
         digi_view_draw_ee(temp_label, epd_paint, 3, loop_cnt);
+        invalid_drawed = true;
     }
 
     digi_view_deinit(temp_label);
@@ -115,6 +119,7 @@ void temperature_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         digi_view_draw(hum_label, epd_paint, loop_cnt);
     } else {
         digi_view_draw_ee(temp_label, epd_paint, 3, loop_cnt);
+        invalid_drawed = true;
     }
     digi_view_deinit(hum_label);
 

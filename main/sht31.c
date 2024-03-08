@@ -6,16 +6,14 @@
 #include "esp_flash.h"
 #include "esp_log.h"
 #include "esp_event.h"
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 #include "bike_common.h"
 #include "sht31.h"
 
 #define I2C_MASTER_NUM              0
-#define I2C_MASTER_FREQ_HZ          400000
-#define I2C_MASTER_TX_BUF_DISABLE   0
-#define I2C_MASTER_RX_BUF_DISABLE   0
-#define I2C_MASTER_TIMEOUT_MS       200
+#define I2C_MASTER_FREQ_HZ          200000
+#define I2C_MASTER_TIMEOUT_MS       50
 
 #define SHT31_ADDR                 0x44
 #define SHT31_MEAS_HIGHREP_STRETCH 0x2C06 /**< Measurement High Repeatability with Clock Stretch Enabled */
@@ -104,35 +102,50 @@ ESP_EVENT_DEFINE_BASE(BIKE_TEMP_HUM_SENSOR_EVENT);
 
 static bool sht31_inited = false;
 static sht31_t sht31;
+static i2c_master_bus_handle_t i2c_bus_handle;
+static i2c_master_dev_handle_t dev_handle;
 
 /**
  * @brief i2c master initialization
  */
 static esp_err_t i2c_master_init(void) {
     int i2c_master_port = I2C_MASTER_NUM;
-
-    i2c_config_t conf = {
-            .mode = I2C_MODE_MASTER,
-            .sda_io_num = I2C_SDA_IO,
+    i2c_master_bus_config_t i2c_mst_config = {
+            .clk_source = I2C_CLK_SRC_DEFAULT,
+            .i2c_port = i2c_master_port,
             .scl_io_num = I2C_SCL_IO,
-            .sda_pullup_en = GPIO_PULLUP_ENABLE,
-            .scl_pullup_en = GPIO_PULLUP_ENABLE,
-            .master.clk_speed = I2C_MASTER_FREQ_HZ,
+            .sda_io_num = I2C_SDA_IO,
+            .glitch_ignore_cnt = 7,
+            .flags.enable_internal_pullup = true,
     };
 
-    i2c_param_config(i2c_master_port, &conf);
+    esp_err_t iic_err = i2c_new_master_bus(&i2c_mst_config, &i2c_bus_handle);
+    if (iic_err != ESP_OK) {
+        ESP_LOGE(TAG, "I2C initialized failed %d %s", iic_err, esp_err_to_name(iic_err));
+        return iic_err;
+    } else {
+        ESP_LOGI(TAG, "I2C initialized successfully");
+    }
 
-    return i2c_driver_install(i2c_master_port, conf.mode, I2C_MASTER_RX_BUF_DISABLE, I2C_MASTER_TX_BUF_DISABLE, 0);
+    // add device
+    i2c_device_config_t dev_cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address = SHT31_ADDR,
+            .scl_speed_hz = I2C_MASTER_FREQ_HZ,
+    };
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(i2c_bus_handle, &dev_cfg, &dev_handle));
+
+    return iic_err;
 }
 
 /**
- * @brief Read a sequence of bytes from a MPU9250 sensor registers
+ * @brief Read a sequence of bytes from a sht3x sensor registers
  */
 static esp_err_t i2c_read(uint16_t reg_addr, uint8_t *data, size_t len) {
     uint8_t u8_reg_addr[] = {reg_addr >> 8, reg_addr & 0xff};
-    esp_err_t err = i2c_master_write_read_device(I2C_MASTER_NUM, SHT31_ADDR,
+    esp_err_t err = i2c_master_transmit_receive(dev_handle,
                                                  u8_reg_addr, 2, data, len,
-                                                 I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+                                                 I2C_MASTER_TIMEOUT_MS);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "read i2c failed, for dev:%x addr:%x,  %s", SHT31_ADDR, reg_addr, esp_err_to_name(err));
     }
@@ -142,22 +155,9 @@ static esp_err_t i2c_read(uint16_t reg_addr, uint8_t *data, size_t len) {
 static esp_err_t i2c_write_cmd(uint16_t reg_addr) {
     int ret;
     uint8_t u8_reg_addr[] = {reg_addr >> 8, reg_addr & 0xff};
-    ret = i2c_master_write_to_device(I2C_MASTER_NUM, SHT31_ADDR,
+    ret = i2c_master_transmit(dev_handle,
                                      u8_reg_addr, 2,
-                                     I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
-    if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "write i2c cmd failed, for addr %x,  %s", reg_addr, esp_err_to_name(ret));
-    }
-    return ret;
-}
-
-static esp_err_t i2c_write_data(uint16_t reg_addr, uint8_t data) {
-    int ret;
-    uint8_t write_buf[2] = {reg_addr, data};
-    ret = i2c_master_write_to_device(I2C_MASTER_NUM, SHT31_ADDR,
-                                     write_buf,
-                                     sizeof(write_buf),
-                                     I2C_MASTER_TIMEOUT_MS / portTICK_PERIOD_MS);
+                                     I2C_MASTER_TIMEOUT_MS);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG, "write i2c cmd failed, for addr %x,  %s", reg_addr, esp_err_to_name(ret));
     }
@@ -182,7 +182,6 @@ static void sht31_task_entry(void *arg) {
     uint8_t failed_cnt = 0;
     uint8_t data[3];
 
-    sht31_reset();
     sht31_start:
     i2c_read(SHT31_READSTATUS, data, 3);
     if (data[2] != crc8(data, 2)) {
@@ -200,8 +199,7 @@ static void sht31_task_entry(void *arg) {
         ESP_LOGI(TAG, "HEAT Status %d", (data[0] >> 5) & 0x01);
     }
 
-    i2c_write_cmd(SHT31_CLEARSTATUS);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    // i2c_write_cmd(SHT31_CLEARSTATUS);
     while (1) {
         if (sht31_read_temp_hum()) {
             //ESP_LOGI(TAG, "temp %f, hum:%f", sht31.data.temp, sht31.data.hum);
@@ -228,7 +226,6 @@ void sht31_init() {
         ESP_LOGE(TAG, "I2C initialized failed %d %s", iic_err, esp_err_to_name(iic_err));
         return;
     }
-    ESP_LOGI(TAG, "I2C initialized successfully");
 
     /* Create NMEA Parser task */
     BaseType_t err = xTaskCreate(
@@ -251,7 +248,11 @@ bool sht31_read_temp_hum() {
     i2c_write_cmd(SHT31_MEAS_MEDREP); // med 10, high 20
     vTaskDelay(pdMS_TO_TICKS(10));
 
-    i2c_read(SHT31_FETCH_DATA, readbuffer, 6);
+    esp_err_t err = i2c_read(SHT31_FETCH_DATA, readbuffer, 6);
+    if (err != ESP_OK) {
+        sht31_reset();
+        return false;
+    }
 
     if (readbuffer[2] != crc8(readbuffer, 2) ||
         readbuffer[5] != crc8(readbuffer + 3, 2)) {
@@ -304,7 +305,10 @@ bool sht31_get_temp_hum(float *temp, float *hum) {
 }
 
 void sht31_deinit() {
-    ESP_ERROR_CHECK(i2c_driver_delete(I2C_MASTER_NUM));
-    ESP_LOGI(TAG, "I2C de-initialized successfully");
-    sht31_inited = false;
+    if (sht31_inited) {
+        i2c_master_bus_rm_device(dev_handle);
+        i2c_del_master_bus(i2c_bus_handle);
+        ESP_LOGI(TAG, "I2C de-initialized successfully");
+        sht31_inited = false;
+    }
 }

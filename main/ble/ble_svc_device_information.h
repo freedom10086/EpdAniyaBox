@@ -6,7 +6,6 @@
 #define EPD_ANIYA_BOX_BLE_SVC_DEVICE_INFOMATION_H
 
 #include "esp_bt.h"
-#include "modlog/modlog.h"
 #include "ble_peer.h"
 #include "ble_uuid.h"
 

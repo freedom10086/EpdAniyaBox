@@ -26,6 +26,12 @@ typedef struct {
     uint8_t red;
 } pixel_color;
 
+enum ALIGN {
+    ALIGN_START = 0,
+    ALIGN_CENTER,
+    ALIGN_END
+};
+
 void epd_paint_init(epd_paint_t *epd, unsigned char *image, int width, int height);
 
 void epd_paint_deinit(epd_paint_t *epd_paint);
@@ -64,6 +70,10 @@ void epd_paint_draw_bitmap(epd_paint_t *epd_paint, int x, int y, int width, int 
                            uint16_t data_size, int colored);
 
 void epd_paint_draw_bitmap_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, int colored);
+
+void epd_paint_draw_bitmap_file_with_align(epd_paint_t *epd_paint, int x, int y, int width, int height,
+                                           FILE *file, int colored,
+                                           int halign, int valign);
 
 void
 epd_paint_draw_jpg_file(epd_paint_t *epd_paint, int x, int y, int width, int height, FILE *file, uint16_t file_size,

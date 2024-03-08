@@ -5,7 +5,6 @@
 #ifndef EPD_ANIYA_BOX_COMMON_UTILS_H
 #define EPD_ANIYA_BOX_COMMON_UTILS_H
 
-#include "modlog/modlog.h"
 #include <string.h>
 #include "host/ble_hs.h"
 

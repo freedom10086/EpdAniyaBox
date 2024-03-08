@@ -1,7 +1,6 @@
 #ifndef H_ESP_CENTRAL_
 #define H_ESP_CENTRAL_
 
-#include "modlog/modlog.h"
 #include <string.h>
 #include "host/ble_hs.h"
 

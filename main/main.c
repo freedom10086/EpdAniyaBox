@@ -40,17 +40,15 @@ static void application_task(void *args) {
  *   APPLICATION MAIN
  **********************/
 void app_main() {
-    //esp_log_level_set("*", ESP_LOG_WARN);
-    esp_log_level_set("battery", ESP_LOG_WARN);
-    esp_log_level_set("lcd_panel.ssd1680", ESP_LOG_WARN);
-    esp_log_level_set("keyboard", ESP_LOG_WARN);
-    esp_log_level_set("display", ESP_LOG_WARN);
+    esp_log_level_set("*", ESP_LOG_WARN);
+    //esp_log_level_set("battery", ESP_LOG_WARN);
+    //esp_log_level_set("lcd_panel.ssd1680", ESP_LOG_WARN);
+    //esp_log_level_set("keyboard", ESP_LOG_WARN);
+    //esp_log_level_set("display", ESP_LOG_WARN);
 
     boot_count++;
     esp_sleep_wakeup_cause_t cause = esp_sleep_get_wakeup_cause();
-    if (cause != ESP_SLEEP_WAKEUP_UNDEFINED) {
-        ESP_LOGI(TAG, "wake up by cause  %d", cause);
-    }
+    ESP_LOGI(TAG, "wake up by cause  %d", cause);
 
     printf("Hello world!, boot count %ld\n", boot_count);
 

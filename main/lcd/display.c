@@ -343,7 +343,7 @@ void display_init(uint32_t boot_count) {
     boot_cnt = boot_count;
 
     // uxPriority 0 最低
-    xTaskCreatePinnedToCore(guiTask, "gui", 4096 * 2, NULL, 1, NULL, 1);
+    xTaskCreate(guiTask, "gui", 4096 * 2, NULL, 1, NULL);
 
     // key click event
     esp_event_handler_register_with(event_loop_handle,
