@@ -62,3 +62,57 @@ idf.py erase-flash
 idf.py partition-table-flash: will flash the partition table with esptool.py.
 
 idf.py flash: Will flash everything including the partition table.
+
+### 词典支持
+数据源 [ECDICT](https://github.com/skywind3000/ECDICT)    
+处理脚本
+```java
+public static void csv() throws IOException {
+    String csvFile = "/Users/yang/Downloads/ECDICT-master/ecdict.csv";
+
+    Path dictPath = Paths.get("/Users/yang/Downloads/ECDICT-master/dict.csv");
+    Path dictIndexPath = Paths.get("/Users/yang/Downloads/ECDICT-master/dict_index");
+
+    int index = 0;
+    int count = 0;
+    try (Reader in = new FileReader(csvFile)) {
+        Iterable<CSVRecord> records = CSVFormat.DEFAULT.parse(in);
+        for (CSVRecord record : records) {
+            if (record.get(7).contains("cet6")) {
+                String res = record.get(0) + "|" // 单词
+                        + record.get(1) + "|" // 音标
+                        + record.get(3).replace("\\n", "\n")  + '\n'; // 中文意思
+
+                byte[] recordBytes = res.getBytes("gbk");
+                Files.write(dictPath, recordBytes,
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+                byte[] byteIndex = new byte[2];
+                byteIndex[0] = (byte) ((index >> 8) & 0xff);
+                byteIndex[1] = (byte) (index & 0xff);
+
+                index += recordBytes.length;
+
+                Files.write(dictIndexPath, byteIndex,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+
+                count++;
+            }
+
+            //if (count >= 800) { //TODO
+            //    break;
+            //}
+        }
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+}
+```
+```xml
+<dependency>
+    <groupId>org.apache.commons</groupId>
+    <artifactId>commons-csv</artifactId>
+    <version>1.9.0</version>
+</dependency>
+```
