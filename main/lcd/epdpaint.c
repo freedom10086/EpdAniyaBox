@@ -204,6 +204,53 @@ void epd_paint_draw_string_at(epd_paint_t *epd_paint, int x, int y, const char *
     }
 }
 
+void epd_paint_draw_string_at_area(epd_paint_t *epd_paint, int x, int y, int endx, int endy,
+                                   const char *text, sFONT *font, int colored) {
+    const uint8_t *p_text = (uint8_t *) text;
+    uint16_t chinese_text;
+    unsigned int counter = 0;
+
+    int refcolumn = x;
+    int refrow = y;
+
+    if (refcolumn >= endx - font->Width) {
+        return;
+    }
+
+    while (*p_text != 0) {
+        if (*p_text == '\n' || refcolumn >= endx - font->Width) {
+            refcolumn = x;
+            refrow += font->Height;
+            if (*p_text == '\n') {
+                p_text++;
+                continue;
+            }
+        }
+
+        if (refrow >= endy - font->Height) {
+            break;
+        }
+
+        if (font->is_chinese) {
+            if (*p_text < 128) {
+                epd_paint_draw_char_at(epd_paint, refcolumn, refrow, (char) *p_text, &Font16, colored);
+                p_text++;
+                refcolumn += Font16.Width;
+            } else {
+                chinese_text = ((*p_text) | *(p_text + 1) << 8);
+                epd_paint_draw_chinese_char_at(epd_paint, refcolumn, refrow, chinese_text, font, colored);
+                p_text += 2;
+                refcolumn += font->Width;
+            }
+        } else {
+            epd_paint_draw_char_at(epd_paint, refcolumn, refrow, (char) *p_text, font, colored);
+            p_text++;
+            refcolumn += font->Width;
+        }
+        counter++;
+    }
+}
+
 /**
 *  @brief: draws a line on the frame buffer
 */
@@ -376,7 +423,8 @@ void dither(uint8_t *gray_data, uint8_t width, uint8_t height) {
     }
 }
 
-static void draw_gray_color(epd_paint_t *epd_paint, int x, int y, int end_x, int end_y, const uint8_t *bmp_data, int colored) {
+static void
+draw_gray_color(epd_paint_t *epd_paint, int x, int y, int end_x, int end_y, const uint8_t *bmp_data, int colored) {
     uint8_t gray_color;
     for (int j = y; j < end_y; ++j) {
         for (int i = x; i < end_x; ++i) {

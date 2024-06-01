@@ -52,6 +52,9 @@ void epd_paint_draw_chinese_char_at(epd_paint_t *epd_paint, int x, int y, uint16
 
 void epd_paint_draw_string_at(epd_paint_t *epd_paint, int x, int y, const char *text, sFONT *font, int colored);
 
+void epd_paint_draw_string_at_area(epd_paint_t *epd_paint, int x, int y, int endx, int endy,
+                                   const char *text, sFONT *font, int colored);
+
 void epd_paint_draw_line(epd_paint_t *epd_paint, int x0, int y0, int x1, int y1, int colored);
 
 void epd_paint_draw_horizontal_line(epd_paint_t *epd_paint, int x, int y, int width, int colored);

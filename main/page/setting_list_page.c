@@ -13,7 +13,7 @@
 #define PADDING_X 12
 #define PADDING_Y 4
 #define TEXT_PADDING_Y 11
-#define TOTAL_SETTING_ITEM_COUNT 7
+#define TOTAL_SETTING_ITEM_COUNT 8
 
 static bool switching_index = false;
 static int16_t current_index = 0;
@@ -33,7 +33,7 @@ void setting_list_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
     epd_paint_draw_horizontal_line(epd_paint, 0, SETTING_ITEM_HEIGHT * 3, LCD_H_RES, 1);
     epd_paint_draw_horizontal_line(epd_paint, 0, SETTING_ITEM_HEIGHT * 4, LCD_H_RES, 1);
 
-    uint8_t y = 0;
+    uint16_t y = 0;
 
     if (offset_item < 1) {
         // 0 close
@@ -100,7 +100,17 @@ void setting_list_page_draw(epd_paint_t *epd_paint, uint32_t loop_cnt) {
         y += SETTING_ITEM_HEIGHT;
     }
     if (offset_item < 7) {
-        // 6. reboot
+        // 6. dict
+        epd_paint_draw_bitmap(epd_paint, 9, y + PADDING_Y, 32, 32,
+                              (uint8_t *) ic_dict_bmp_start,
+                              ic_dict_bmp_end - ic_dict_bmp_start, 1);
+        uint16_t dict[] = {0xA5B5, 0xCAB4, 0x00};
+        epd_paint_draw_string_at(epd_paint, SETTING_ITEM_HEIGHT + PADDING_X, y + TEXT_PADDING_Y,
+                                 (char *) dict, &Font_HZK16, 1);
+        y += SETTING_ITEM_HEIGHT;
+    }
+    if (offset_item < 8) {
+        // 7. reboot
         epd_paint_draw_bitmap(epd_paint, 9, y + PADDING_Y, 32, 32,
                               (uint8_t *) ic_reboot_bmp_start,
                               ic_reboot_bmp_end - ic_reboot_bmp_start, 1);
@@ -157,6 +167,8 @@ static void handle_click_event() {
         page_manager_switch_page("ble-device");
 #endif
     } else if (current_index == 6) {
+        page_manager_switch_page("dict-page");
+    } else if (current_index == 7) {
         esp_restart();
     }
     page_manager_request_update(false);

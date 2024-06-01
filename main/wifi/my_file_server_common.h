@@ -12,8 +12,8 @@ extern "C" {
 
 /* Max size of an individual file. Make sure this
 * value is same as that set in upload_script.html */
-#define MAX_FILE_SIZE   (256*1024) // 256 KB
-#define MAX_FILE_SIZE_STR "256KB"
+#define MAX_FILE_SIZE   (512*1024) // 512 KB
+#define MAX_FILE_SIZE_STR "512KB"
 
 esp_err_t mount_storage(const char *base_path, bool format_when_failed);
 

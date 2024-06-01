@@ -39,7 +39,7 @@ function upload() {
     /* Max size of an individual file. Make sure this
      * value is same as that set in file_server.c */
     var MAX_FILE_SIZE = 256*1024;
-    var MAX_FILE_SIZE_STR = "256KB";
+    var MAX_FILE_SIZE_STR = "512KB";
 
     if (fileInput.length == 0) {
         alert("No file selected!");
@@ -49,8 +49,8 @@ function upload() {
         alert("File path on server cannot have spaces!");
     } else if (filePath[filePath.length-1] == '/') {
         alert("File name not specified after path!");
-    } else if (fileInput[0].size > 200*1024) {
-        alert("File size must be less than 200KB!");
+    } else if (fileInput[0].size > MAX_FILE_SIZE) {
+        alert("File size must be less than " + MAX_FILE_SIZE_STR + "!");
     } else {
         document.getElementById("newfile").disabled = true;
         document.getElementById("filepath").disabled = true;
